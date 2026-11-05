@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.scannerwork/
+
+# Screenshots, domain folders and thumbnails: third-party content, never committed
+data/
