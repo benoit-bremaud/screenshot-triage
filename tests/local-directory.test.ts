@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -86,6 +86,16 @@ describe('LocalDirectorySource', () => {
     await expect(source.read('..x.png')).resolves.toBeDefined();
     await expect(source.read('../x.png')).rejects.toThrow('escapes');
     await expect(source.read('')).rejects.toThrow('escapes');
+  });
+
+  it('refuses a final folder that is a symbolic link', async () => {
+    const outside = await mkdtemp(join(tmpdir(), 'outside-'));
+    await symlink(outside, join(root, 'Personnel'));
+
+    await expect(source.markPersonal('a.png', target)).rejects.toThrow('real directory');
+    await expect(source.finalIds()).rejects.toThrow('real directory');
+    expect(await readFile(join(root, 'a.png'), 'utf8')).toBe('bytes');
+    await rm(outside, { recursive: true, force: true });
   });
 
   it('lists ids only from the final folders, ignoring foreign names', async () => {

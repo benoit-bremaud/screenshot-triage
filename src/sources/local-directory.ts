@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, rename, rm, stat } from 'node:fs/promises';
+import { lstat, mkdir, readdir, readFile, rename, rm, stat } from 'node:fs/promises';
 import { isAbsolute, join, relative, sep } from 'node:path';
 
 import { exists, isMissing } from '../fs.js';
@@ -69,7 +69,7 @@ export class LocalDirectorySource implements CaptureSource {
   /** Lists names only (ids), never bytes (REQ-5). */
   private async idsIn(folder: string): Promise<Set<string>> {
     try {
-      const names = await readdir(join(this.root, folder));
+      const names = await readdir(await this.finalFolder(folder));
       return new Set(names.map(idOfName).filter((id): id is string => id !== undefined));
     } catch (error) {
       if (isMissing(error)) return new Set();
@@ -86,7 +86,7 @@ export class LocalDirectorySource implements CaptureSource {
    */
   private async moveInto(folder: string, ref: string, target: SourceTarget): Promise<void> {
     const from = this.resolve(ref);
-    const destination = join(this.root, folder, target.localName);
+    const destination = join(await this.finalFolder(folder), target.localName);
     let info;
     try {
       info = await stat(from);
@@ -106,6 +106,21 @@ export class LocalDirectorySource implements CaptureSource {
       return;
     }
     await rename(from, destination);
+  }
+
+  /**
+   * A final folder is a real directory right under the root, never a symbolic link: a link would move
+   * captures, or read ids, outside the pinned source.
+   */
+  private async finalFolder(folder: string): Promise<string> {
+    const path = join(this.root, folder);
+    try {
+      const info = await lstat(path);
+      if (!info.isDirectory()) throw new Error(`${folder} must be a real directory inside the source`);
+    } catch (error) {
+      if (!isMissing(error)) throw error;
+    }
+    return path;
   }
 
   /** A ref is a path under the root (REQ-9): anything that escapes it is refused. */

@@ -12,6 +12,8 @@ export interface ScanReport {
   readonly rejected: number;
   /** Candidates whose id matches a different hash already indexed; nothing is written for them. */
   readonly collisions: number;
+  /** Candidates whose file changed between the listing and the read; the next scan takes them. */
+  readonly changed: number;
   /** Rows written by this scan, per status. */
   readonly seen: Partial<Record<Status, number>>;
 }
@@ -27,10 +29,16 @@ export const scan = async (context: CommandContext): Promise<number> => {
   const seen: Partial<Record<Status, number>> = {};
   let rejected = 0;
   let collisions = 0;
+  let changed = 0;
   for (const capture of await source.listCaptures()) {
     const existing = context.index.byRef(capture.ref);
     if (!scanRevisits(existing)) continue;
     const bytes = await source.read(capture.ref);
+    // Replaced between the listing and the read: the metadata would describe other bytes. Next scan.
+    if (bytes.length !== capture.size) {
+      changed += 1;
+      continue;
+    }
     const ext = detectImageExt(bytes);
     if (ext === undefined) {
       rejected += 1;
@@ -61,7 +69,7 @@ export const scan = async (context: CommandContext): Promise<number> => {
   for (const row of context.index.all()) {
     if (row.status === 'inbox') inbox.push(await entryOf(context, row));
   }
-  const report: ScanReport = { inbox, rejected, collisions, seen };
+  const report: ScanReport = { inbox, rejected, collisions, changed, seen };
   context.out(JSON.stringify(report));
   return EXIT_OK;
 };
