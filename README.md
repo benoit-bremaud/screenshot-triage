@@ -50,7 +50,7 @@ node dist/main.js status --json
 node dist/main.js tags
 ```
 
-`<id>` is the first 12 hex characters of the capture's SHA-256; a filename never reaches argv. `npm run check` runs typecheck, lint and the tests (the CI mirror).
+`<id>` is the first 12 hex characters of the capture's SHA-256; a filename never reaches argv. Exit codes: 0 done, 1 transition rejected, 2 usage error, 3 unexpected error. `npm run check` runs typecheck, lint and the tests; with `gitleaks git` (8.30.1, the version the CI pins) it mirrors the four CI jobs.
 
 ## Status
 

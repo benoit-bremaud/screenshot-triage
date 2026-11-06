@@ -41,12 +41,12 @@ describe('T-10 illegal transitions are rejected with the current status and exit
     expect(run.err[0]).toContain('already kept');
   });
 
-  it('file on a deleted or personal capture: the id no longer addresses a row', async () => {
+  it('file on a deleted capture is rejected with its current status', async () => {
     await ws.doubt(id);
     await ws.resolve(id, 'delete');
     const run = await ws.file(id, {});
     expect(run.code).toBe(1);
-    expect(run.err[0]).toContain('unknown capture');
+    expect(run.err[0]).toContain('current status: deleted');
   });
 
   it('file on a duplicate: a duplicate receives no command', async () => {

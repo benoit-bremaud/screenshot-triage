@@ -25,13 +25,15 @@ sequenceDiagram
   Skill->>CLI: scan --source DIR
   CLI->>Store: load index (known refs, known hashes)
   Store-->>CLI: index
+  CLI->>Source: finalIds()
+  Source-->>CLI: ids in Personnel/ and .trash/ (names only, never bytes)
   CLI->>Source: listCaptures()
-  Source-->>CLI: captures (ref, name, takenAt, ocrText?)
-  loop for each capture whose ref is not in the index, or whose row is deleted (restored asset)
+  Source-->>CLI: captures (ref, name, takenAt, size, ocrText?)
+  loop for each capture whose ref is not in the index, or whose row is deleted or personal (restored or re-synced)
     CLI->>Source: read(ref)
     Source-->>CLI: bytes
     alt personal (index row or ID in Personnel/), or ID still in .trash/ (checked first)
-      CLI->>Source: markPersonal(ref) or trash(ref), collision rule, applied (or printed with --dry-run)
+      CLI->>Source: markPersonal(ref, target) or trash(ref, target), target = ID.EXT + size + takenAt; a changed file is refused, an existing target removes the copy (or printed with --dry-run)
       CLI->>Store: upsert(ref, status = original's status, duplicateOf)
     else hash already indexed, original not final
       CLI->>Store: upsert(ref, status = duplicate, duplicateOf)

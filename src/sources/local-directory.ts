@@ -1,12 +1,18 @@
 import { mkdir, readdir, readFile, rename, rm, stat } from 'node:fs/promises';
-import { join, relative, sep } from 'node:path';
+import { isAbsolute, join, relative, sep } from 'node:path';
 
+import { exists, isMissing } from '../fs.js';
+import { isCaptureId, type SourceTarget } from '../triage/capture.js';
 import type { CaptureSource, FinalIds, SourceCapture } from './capture-source.js';
 
 export const PERSONAL_FOLDER = 'Personnel';
 export const TRASH_FOLDER = '.trash';
 
-const idOfName = (fileName: string): string => fileName.split('.')[0] ?? '';
+/** Final folders hold `<id>.<ext>` names; anything else there is ignored. */
+const idOfName = (fileName: string): string | undefined => {
+  const id = fileName.split('.')[0] ?? '';
+  return isCaptureId(id) ? id : undefined;
+};
 
 /**
  * Brick 2 source: a directory of screenshots. `Personnel/` and `.trash/` are the durable
@@ -36,20 +42,21 @@ export class LocalDirectorySource implements CaptureSource {
         ref: relative(this.root, path).split(sep).join('/'),
         name: entry.name,
         takenAt: info.mtime.toISOString(),
+        size: info.size,
       });
     }
   }
 
-  read(ref: string): Promise<Uint8Array> {
+  async read(ref: string): Promise<Uint8Array> {
     return readFile(this.resolve(ref));
   }
 
-  markPersonal(ref: string, localName: string): Promise<void> {
-    return this.moveInto(PERSONAL_FOLDER, ref, localName);
+  async markPersonal(ref: string, target: SourceTarget): Promise<void> {
+    await this.moveInto(PERSONAL_FOLDER, ref, target);
   }
 
-  trash(ref: string, localName: string): Promise<void> {
-    return this.moveInto(TRASH_FOLDER, ref, localName);
+  async trash(ref: string, target: SourceTarget): Promise<void> {
+    await this.moveInto(TRASH_FOLDER, ref, target);
   }
 
   async finalIds(): Promise<FinalIds> {
@@ -63,42 +70,46 @@ export class LocalDirectorySource implements CaptureSource {
   private async idsIn(folder: string): Promise<Set<string>> {
     try {
       const names = await readdir(join(this.root, folder));
-      return new Set(names.map(idOfName));
+      return new Set(names.map(idOfName).filter((id): id is string => id !== undefined));
     } catch (error) {
       if (isMissing(error)) return new Set();
       throw error;
     }
   }
 
-  /** A duplicate whose target name exists is removed instead of moved: the bytes are identical. */
-  private async moveInto(folder: string, ref: string, localName: string): Promise<void> {
+  /**
+   * Moves `ref` to `<folder>/<localName>`. A missing `ref` is already gone (a re-run after a crash).
+   * A file whose size or time differ from the scanned capture is refused: it is another file under the
+   * same name. When the target exists the duplicate is removed instead, the bytes being identical.
+   */
+  private async moveInto(folder: string, ref: string, target: SourceTarget): Promise<void> {
     const from = this.resolve(ref);
-    const target = join(this.root, folder, localName);
+    const destination = join(this.root, folder, target.localName);
+    let info;
+    try {
+      info = await stat(from);
+    } catch (error) {
+      if (isMissing(error)) return;
+      throw error;
+    }
+    if (info.size !== target.size || info.mtime.toISOString() !== target.takenAt) {
+      throw new Error(`source file changed since scan (${target.localName}); scan again`);
+    }
     await mkdir(join(this.root, folder), { recursive: true });
-    if (await exists(target)) {
+    if (await exists(destination)) {
       await rm(from);
       return;
     }
-    await rename(from, target);
+    await rename(from, destination);
   }
 
+  /** A ref is a path under the root (REQ-9): anything that escapes it is refused. */
   private resolve(ref: string): string {
     const path = join(this.root, ref);
     const inside = relative(this.root, path);
-    if (inside.startsWith('..') || inside === '') throw new Error('ref escapes the source directory');
+    if (inside === '' || inside === '..' || inside.startsWith(`..${sep}`) || isAbsolute(inside)) {
+      throw new Error('ref escapes the source directory');
+    }
     return path;
   }
 }
-
-const isMissing = (error: unknown): boolean =>
-  typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
-
-const exists = async (path: string): Promise<boolean> => {
-  try {
-    await stat(path);
-    return true;
-  } catch (error) {
-    if (isMissing(error)) return false;
-    throw error;
-  }
-};

@@ -8,6 +8,7 @@ const doubtfulRow: CaptureRow = {
   ref: 'a.png',
   name: 'a.png',
   takenAt: '2026-11-01T00:00:00.000Z',
+  size: 10,
   contentHash: 'abcdef012345'.padEnd(64, '0'),
   ext: 'png',
   status: 'doubtful',
@@ -47,7 +48,7 @@ describe('T-6 resolve personal / delete', () => {
     expect((await ws.rowById(id)).map((row) => row.status)).toEqual(['deleted', 'deleted']);
   });
 
-  it('pure transition: effect order is local delete, source call, index write, then each duplicate', () => {
+  it('pure transition: effect order is local delete, source call, each duplicate, then the primary index row last', () => {
     const dup: CaptureRow = { ...doubtfulRow, ref: 'b.png', status: 'duplicate', duplicateOf: 'a.png' };
     const result = transition(doubtfulRow, { type: 'resolve', answer: 'personal', duplicates: [dup] });
     expect(result.ok).toBe(true);
@@ -55,10 +56,12 @@ describe('T-6 resolve personal / delete', () => {
     expect(result.effects.map((effect) => effect.kind)).toEqual([
       'delete-local',
       'source-mark-personal',
-      'index-write',
       'source-mark-personal',
       'index-write',
+      'index-write',
     ]);
+    const last = result.effects.at(-1);
+    expect(last?.kind === 'index-write' ? last.row.ref : undefined).toBe('a.png');
   });
 });
 

@@ -10,12 +10,13 @@ const sourceSdkOutsideSources = {
       'error',
       {
         paths: [{ name: '@immich/sdk', message: 'Only src/sources/ imports the Immich SDK.' }],
+        patterns: [{ group: ['@immich/sdk/*'], message: 'Only src/sources/ imports the Immich SDK.' }],
       },
     ],
   },
 };
 
-/** src/triage/ is the functional core: it imports nothing from store, effects or sources. */
+/** src/triage/ is the functional core: it imports nothing from store, effects, sources or node:fs. */
 const pureTriageCore = {
   files: ['src/triage/**/*.ts'],
   rules: {
@@ -25,8 +26,8 @@ const pureTriageCore = {
         paths: [{ name: '@immich/sdk', message: 'Only src/sources/ imports the Immich SDK.' }],
         patterns: [
           {
-            group: ['../store/**', '../effects', '../effects.js', '../sources/**', '../commands/**', '../cli.js'],
-            message: 'src/triage/ imports nothing from store, effects, sources or commands.',
+            group: ['../store/**', '../effects', '../effects.js', '../fs', '../fs.js', '../sources/**', '../commands/**', '../cli.js', 'node:fs', 'node:fs/*', '@immich/sdk/*'],
+            message: 'src/triage/ imports nothing from store, effects, sources, commands or the file system.',
           },
         ],
       },

@@ -1,6 +1,7 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
+import { isMissing } from '../fs.js';
 import { sameDecision, type DecisionLine } from '../triage/decision.js';
 
 /**
@@ -10,6 +11,7 @@ import { sameDecision, type DecisionLine } from '../triage/decision.js';
 export class DecisionLog {
   constructor(private readonly path: string) {}
 
+  /** Every line, oldest first; a missing file is an empty log. */
   async lines(): Promise<readonly DecisionLine[]> {
     let text: string;
     try {
@@ -24,15 +26,10 @@ export class DecisionLog {
       .map((line) => JSON.parse(line) as DecisionLine);
   }
 
-  /** Returns true when a line was written. */
-  async append(line: DecisionLine): Promise<boolean> {
+  async append(line: DecisionLine): Promise<void> {
     const previous = (await this.lines()).filter((entry) => entry.contentHash === line.contentHash).at(-1);
-    if (previous !== undefined && sameDecision(previous, line)) return false;
+    if (previous !== undefined && sameDecision(previous, line)) return;
     await mkdir(dirname(this.path), { recursive: true });
     await appendFile(this.path, `${JSON.stringify(line)}\n`, 'utf8');
-    return true;
   }
 }
-
-const isMissing = (error: unknown): boolean =>
-  typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';

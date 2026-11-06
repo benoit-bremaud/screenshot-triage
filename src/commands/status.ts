@@ -1,26 +1,31 @@
 import { idOf } from '../triage/capture.js';
-import { DOMAINS } from '../triage/domains.js';
+import { DOMAINS, type Domain } from '../triage/domains.js';
+import type { Status } from '../triage/status.js';
 import { NEW_SKILL_THRESHOLD } from '../triage/tags.js';
-import { EXIT_OK, type CommandContext } from './context.js';
-import { entry } from './scan.js';
+import { EXIT_OK, entryOf, type CaptureEntry, type CommandContext } from './context.js';
 
 const OLD_OTHER_DAYS = 90;
+const DAY_MS = 86_400_000;
 
+/** A tag with its capture count; five or more make a new-skill candidate (ADR-0001 § Taxonomy). */
 export interface TagCount {
   readonly tag: string;
   readonly count: number;
   readonly newSkillCandidate: boolean;
 }
 
+/** The UC3 report (REQ-7), printed as JSON with `--json`, as text otherwise. */
 export interface StatusReport {
-  readonly byStatus: Record<string, number>;
-  readonly byDomain: Record<string, number>;
-  readonly doubtful: readonly { id: string; path: string; category?: string; reasoning?: string }[];
+  readonly byStatus: Partial<Record<Status, number>>;
+  readonly byDomain: Partial<Record<Domain, number>>;
+  /** Doubtful captures awaiting an answer: the list UC2 iterates. */
+  readonly doubtful: readonly (CaptureEntry & { category?: string; reasoning?: string })[];
   readonly tags: readonly TagCount[];
+  /** Triaged `other` captures taken more than 90 days ago. */
   readonly oldOther: readonly { id: string; takenAt: string }[];
 }
 
-/** Tags with their capture counts, over every row that carries a domain. */
+/** Tags with their capture counts, over every row that carries tags. */
 export const tagCounts = (context: CommandContext): TagCount[] => {
   const counts = new Map<string, number>();
   for (const row of context.index.all()) {
@@ -31,26 +36,28 @@ export const tagCounts = (context: CommandContext): TagCount[] => {
     .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
 };
 
-/** UC3 (REQ-7): counts, the doubtful list, tag counts and the old `other` captures. */
-export const buildStatus = (context: CommandContext): StatusReport => {
+export const buildStatus = async (context: CommandContext): Promise<StatusReport> => {
   const rows = context.index.all();
-  const byStatus: Record<string, number> = {};
-  const byDomain: Record<string, number> = {};
+  const byStatus: Partial<Record<Status, number>> = {};
+  const byDomain: Partial<Record<Domain, number>> = {};
   for (const row of rows) {
     byStatus[row.status] = (byStatus[row.status] ?? 0) + 1;
     if (row.domain !== undefined) byDomain[row.domain] = (byDomain[row.domain] ?? 0) + 1;
   }
-  const limit = context.now().getTime() - OLD_OTHER_DAYS * 24 * 3600 * 1000;
+  const doubtful: StatusReport['doubtful'][number][] = [];
+  for (const row of rows) {
+    if (row.status !== 'doubtful') continue;
+    doubtful.push({
+      ...(await entryOf(context, row)),
+      ...(row.category === undefined ? {} : { category: row.category }),
+      ...(row.reasoning === undefined ? {} : { reasoning: row.reasoning }),
+    });
+  }
+  const limit = context.now().getTime() - OLD_OTHER_DAYS * DAY_MS;
   return {
     byStatus,
     byDomain,
-    doubtful: rows
-      .filter((row) => row.status === 'doubtful')
-      .map((row) => ({
-        ...entry(context.dataDir, row),
-        ...(row.category === undefined ? {} : { category: row.category }),
-        ...(row.reasoning === undefined ? {} : { reasoning: row.reasoning }),
-      })),
+    doubtful,
     tags: tagCounts(context),
     oldOther: rows
       .filter((row) => row.domain === 'other' && row.status === 'triaged' && Date.parse(row.takenAt) < limit)
@@ -58,8 +65,9 @@ export const buildStatus = (context: CommandContext): StatusReport => {
   };
 };
 
-export const status = (context: CommandContext, json: boolean): number => {
-  const report = buildStatus(context);
+/** `status [--json]`: UC3. */
+export const status = async (context: CommandContext, json: boolean): Promise<number> => {
+  const report = await buildStatus(context);
   if (json) {
     context.out(JSON.stringify(report));
     return EXIT_OK;
@@ -82,7 +90,7 @@ export const tags = (context: CommandContext): number => {
   return EXIT_OK;
 };
 
-const format = (counts: Record<string, number>): string =>
+const format = (counts: Partial<Record<string, number>>): string =>
   Object.entries(counts)
     .map(([key, value]) => `${key}=${String(value)}`)
     .join(' ') || 'none';

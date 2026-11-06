@@ -4,27 +4,33 @@ import { DOMAINS } from './domains.js';
 import { DOUBT_CATEGORIES } from './status.js';
 import { isKebabCase } from './tags.js';
 
-/**
- * The one schema every stdin payload is validated against (ADR-0002 § Consequences).
- * Free text (reasoning) is accepted as an opaque string and never interpreted.
- */
-const tag = z.string().min(1).refine(isKebabCase, 'Tags are kebab-case English');
+/** Identifiers that reach the public log are tokens, never sentences (CLAUDE.md "nothing private in Git"). */
+const TOKEN = /^[a-z0-9][a-z0-9.:-]{0,39}$/;
+
+const token = z.string().regex(TOKEN, 'A token: lowercase letters, digits, dot, colon or dash, 40 characters at most');
+
+const tag = z.string().max(40).refine(isKebabCase, 'Tags are kebab-case English');
 
 const common = {
-  promptVersion: z.string().min(1),
-  model: z.string().min(1),
-  reasoning: z.string().min(1),
+  promptVersion: token,
+  model: token,
+  /** Opaque model text: stored in the private index only, never interpreted or logged. */
+  reasoning: z.string().min(1).max(4000),
 };
 
+/**
+ * Schema of the `file <id>` stdin payload (ADR-0002 § Consequences). Strict: unknown keys are rejected.
+ * `confidence` is 0..1 and absent on an owner correction (glossary "Correction").
+ */
 export const FileDecisionSchema = z.strictObject({
   ...common,
   domain: z.enum(DOMAINS),
-  tags: z.array(tag),
-  consideredTags: z.array(tag).default([]),
-  /** Absent on an owner correction (glossary "Correction"). */
+  tags: z.array(tag).max(32),
+  consideredTags: z.array(tag).max(32).default([]),
   confidence: z.number().min(0).max(1).optional(),
 });
 
+/** Schema of the `doubt <id>` stdin payload: a category and the reasoning, kept in the private index only. */
 export const DoubtDecisionSchema = z.strictObject({
   ...common,
   category: z.enum(DOUBT_CATEGORIES),
@@ -42,7 +48,9 @@ export interface DecisionLine {
   readonly domain: FileDecision['domain'];
   readonly tags: readonly string[];
   readonly consideredTags: readonly string[];
+  /** 0..1; absent on an owner correction. */
   readonly confidence?: number;
+  /** `work` after a doubt the owner kept, `correction` on a re-file, absent otherwise. */
   readonly answer?: 'work' | 'correction';
 }
 

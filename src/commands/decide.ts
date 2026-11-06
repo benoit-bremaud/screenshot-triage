@@ -5,7 +5,7 @@ import type { CaptureRow } from '../triage/capture.js';
 import { DoubtDecisionSchema, FileDecisionSchema } from '../triage/decision.js';
 import { isAnswer } from '../triage/status.js';
 import { transition, type Event } from '../triage/transition.js';
-import { EXIT_OK, reportRejection, rowForId, UsageError, type CommandContext } from './context.js';
+import { EXIT_OK, reportRejection, requireSource, rowForId, UsageError, type CommandContext } from './context.js';
 
 /** Parses the one JSON decision object read on stdin (ADR-0002 § Consequences). */
 const parsePayload = <T>(schema: z.ZodType<T>, stdin: string): T => {
@@ -22,43 +22,49 @@ const parsePayload = <T>(schema: z.ZodType<T>, stdin: string): T => {
 
 const apply = async (
   context: CommandContext,
-  id: string | undefined,
-  event: (row: CaptureRow | undefined) => Event,
+  id: string,
+  row: CaptureRow | undefined,
+  event: Event,
   dryRun: boolean,
 ): Promise<number> => {
-  const row = rowForId(context, id);
-  const result = transition(row, event(row));
+  const result = transition(row, event);
   if (!result.ok) return reportRejection(context, result);
-  await runEffects(result.effects, { ...context, print: context.out }, dryRun);
+  try {
+    await runEffects(result.effects, { ...context, dryRun });
+  } catch (error) {
+    // UC1 ext. 5a: a failed move leaves the row `inbox` with an error flag; the next `scan` presents it again.
+    if (event.type === 'file' && row?.status === 'inbox') {
+      await context.index.upsert({ ...row, error: 'move failed' });
+    }
+    throw error;
+  }
   context.out(JSON.stringify({ id, status: dryRun ? (row?.status ?? 'none') : result.next, dryRun }));
   return EXIT_OK;
 };
 
-/** `file <id>`: Inbox → Triaged, or a correction on a triaged capture (T-3, T-8). */
+/** `file <id>`: Inbox → Triaged, or an owner correction on a triaged capture (T-3, T-8). */
 export const file = (context: CommandContext, id: string | undefined, stdin: string): Promise<number> => {
-  rowForId(context, id);
+  const row = rowForId(context, id);
   const decision = parsePayload(FileDecisionSchema, stdin);
-  return apply(context, id, () => ({ type: 'file', decision, timestamp: context.now().toISOString() }), false);
+  const event: Event = { type: 'file', decision, timestamp: context.now().toISOString() };
+  return apply(context, id ?? '', row, event, context.dryRun);
 };
 
 /** `doubt <id>`: Inbox → Doubtful, index only (T-4). */
 export const doubt = (context: CommandContext, id: string | undefined, stdin: string): Promise<number> => {
-  rowForId(context, id);
+  const row = rowForId(context, id);
   const decision = parsePayload(DoubtDecisionSchema, stdin);
-  return apply(context, id, () => ({ type: 'doubt', decision }), false);
+  return apply(context, id ?? '', row, { type: 'doubt', decision }, context.dryRun);
 };
 
-/** `resolve <id> --as work|personal|delete [--dry-run]` (SEQ-resolve-doubt). */
+/**
+ * `resolve <id> --as work|personal|delete [--dry-run]` (SEQ-resolve-doubt). `work` has no destructive
+ * effect, so it ignores `--dry-run` and needs no `--source`.
+ */
 export const resolve = (context: CommandContext, id: string | undefined, answer: string | undefined): Promise<number> => {
-  rowForId(context, id);
+  const row = rowForId(context, id);
   if (answer === undefined || !isAnswer(answer)) throw new UsageError('--as must be work, personal or delete');
-  if (answer !== 'work' && context.source === undefined) throw new UsageError('this command needs --source <dir>');
-  const duplicates = (row: CaptureRow | undefined): readonly CaptureRow[] =>
-    row === undefined ? [] : context.index.duplicatesOf(row.ref);
-  return apply(
-    context,
-    id,
-    (row) => ({ type: 'resolve', answer, duplicates: duplicates(row) }),
-    answer !== 'work' && context.dryRun,
-  );
+  if (answer !== 'work') requireSource(context);
+  const duplicates = row === undefined ? [] : context.index.duplicatesOf(row.ref);
+  return apply(context, id ?? '', row, { type: 'resolve', answer, duplicates }, answer !== 'work' && context.dryRun);
 };

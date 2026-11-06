@@ -1,6 +1,7 @@
-import { mkdir, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { exists, isExisting } from './fs.js';
 import type { CaptureSource } from './sources/capture-source.js';
 import type { CaptureIndex } from './store/capture-index.js';
 import type { DecisionLog } from './store/decision-log.js';
@@ -9,24 +10,31 @@ import { describeEffect, type Effect } from './triage/effects.js';
 
 export const INBOX_FOLDER = 'inbox';
 
+/** What the runner needs; `src/cli.ts` builds it once per command. */
 export interface EffectDeps {
   readonly dataDir: string;
   readonly source: CaptureSource | undefined;
   readonly index: CaptureIndex;
   readonly log: DecisionLog;
-  readonly print: (line: string) => void;
+  /** With `--dry-run` every effect is printed through `out` and nothing is applied. */
+  readonly dryRun: boolean;
+  readonly out: (line: string) => void;
 }
 
 /**
  * Runs the effects of a transition in order, or prints them with `--dry-run` (REQ-6).
- * File-system effects run here; store effects go through `src/store/`.
+ * File-system effects run here; store effects go through `src/store/`. A dry run still stages
+ * index rows in memory so a later effect of the same command sees the earlier ones.
  */
-export const runEffects = async (effects: readonly Effect[], deps: EffectDeps, dryRun: boolean): Promise<void> => {
-  if (dryRun) {
-    for (const effect of effects) deps.print(`dry-run: ${describeEffect(effect)}`);
-    return;
+export const runEffects = async (effects: readonly Effect[], deps: EffectDeps): Promise<void> => {
+  for (const effect of effects) {
+    if (deps.dryRun) {
+      deps.out(`dry-run: ${describeEffect(effect)}`);
+      if (effect.kind === 'index-write') deps.index.stage(effect.row);
+      continue;
+    }
+    await run(effect, deps);
   }
-  for (const effect of effects) await run(effect, deps);
 };
 
 const run = async (effect: Effect, deps: EffectDeps): Promise<void> => {
@@ -34,7 +42,13 @@ const run = async (effect: Effect, deps: EffectDeps): Promise<void> => {
     case 'copy-to-inbox': {
       const bytes = await requireSource(deps).read(effect.ref);
       await mkdir(join(deps.dataDir, INBOX_FOLDER), { recursive: true });
-      await writeFile(join(deps.dataDir, INBOX_FOLDER, effect.localName), bytes);
+      const path = join(deps.dataDir, INBOX_FOLDER, effect.localName);
+      // `wx`: never overwrite a local copy. One left by a lost index is kept when its bytes are identical.
+      try {
+        await writeFile(path, bytes, { flag: 'wx' });
+      } catch (error) {
+        if (!isExisting(error) || !Buffer.from(bytes).equals(await readFile(path))) throw error;
+      }
       return;
     }
     case 'move-to-domain': {
@@ -50,19 +64,19 @@ const run = async (effect: Effect, deps: EffectDeps): Promise<void> => {
       return;
     }
     case 'source-mark-personal':
-      return requireSource(deps).markPersonal(effect.ref, effect.localName);
+      return requireSource(deps).markPersonal(effect.ref, effect.target);
     case 'source-trash':
-      return requireSource(deps).trash(effect.ref, effect.localName);
+      return requireSource(deps).trash(effect.ref, effect.target);
     case 'log-append':
-      await deps.log.append(effect.line);
-      return;
+      return deps.log.append(effect.line);
     case 'index-write':
       return deps.index.upsert(effect.row);
   }
 };
 
+/** The commands check `--source` before running; this guards the runner's own invariant. */
 const requireSource = (deps: EffectDeps): CaptureSource => {
-  if (deps.source === undefined) throw new Error('this command needs --source');
+  if (deps.source === undefined) throw new Error('effect needs a source');
   return deps.source;
 };
 
@@ -73,14 +87,4 @@ export const locateLocal = async (dataDir: string, localName: string): Promise<s
     if (await exists(candidate)) return candidate;
   }
   return undefined;
-};
-
-const exists = async (path: string): Promise<boolean> => {
-  try {
-    await stat(path);
-    return true;
-  } catch (error) {
-    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') return false;
-    throw error;
-  }
 };

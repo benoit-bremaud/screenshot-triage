@@ -58,7 +58,7 @@ export class Workspace {
     const out: string[] = [];
     const err: string[] = [];
     const code = await runCli([...args, '--data', this.data, '--knowledge', this.knowledge], {
-      stdin,
+      readStdin: () => Promise.resolve(stdin),
       out: (line) => out.push(line),
       err: (line) => err.push(line),
       now: () => this.now,

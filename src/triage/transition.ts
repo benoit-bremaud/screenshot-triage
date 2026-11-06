@@ -1,4 +1,4 @@
-import { localName, type CaptureRow } from './capture.js';
+import { localName, targetOf, type CaptureRow } from './capture.js';
 import type { DecisionLine, DoubtDecision, FileDecision } from './decision.js';
 import type { Effect } from './effects.js';
 import type { ImageExt } from './image.js';
@@ -9,6 +9,7 @@ export interface ScanCandidate {
   readonly ref: string;
   readonly name: string;
   readonly takenAt: string;
+  readonly size: number;
   readonly contentHash: string;
   readonly ext: ImageExt;
   readonly ocrText?: string;
@@ -34,6 +35,9 @@ export type Transition =
   | { readonly ok: true; readonly next: Status; readonly effects: readonly Effect[] }
   | { readonly ok: false; readonly current: Status | undefined; readonly reason: string };
 
+/** The model name an owner correction carries (glossary "Correction"). */
+export const OWNER_MODEL = 'owner';
+
 const reject = (capture: CaptureRow | undefined, reason: string): Transition => ({
   ok: false,
   current: capture?.status,
@@ -41,6 +45,10 @@ const reject = (capture: CaptureRow | undefined, reason: string): Transition => 
 });
 
 const ok = (next: Status, effects: readonly Effect[]): Transition => ({ ok: true, next, effects });
+
+/** `scan` replaces a row only when its ref came back after a final status (restored or re-synced file). */
+export const scanRevisits = (row: CaptureRow | undefined): boolean =>
+  row === undefined || row.status === 'deleted' || row.status === 'personal';
 
 /** The capture state machine of `05-state-capture.md`: pure, every effect returned in order. */
 export const transition = (capture: CaptureRow | undefined, event: Event): Transition => {
@@ -56,17 +64,24 @@ export const transition = (capture: CaptureRow | undefined, event: Event): Trans
   }
 };
 
+/** Private text about a capture the owner declared personal never stays in the index (REQ-5). */
+const withoutPrivateText = (row: CaptureRow): CaptureRow => {
+  const { reasoning: _reasoning, ocrText: _ocrText, category: _category, ...rest } = row;
+  return rest;
+};
+
 const scan = (capture: CaptureRow | undefined, candidate: ScanCandidate, facts: ScanFacts): Transition => {
-  if (capture !== undefined && capture.status !== 'deleted') {
-    return reject(capture, 'scan only creates a row or replaces a deleted one');
-  }
-  const base = { ...candidate, status: 'inbox' as Status };
+  if (!scanRevisits(capture)) return reject(capture, 'scan only creates a row or replaces a final one');
+  const base: CaptureRow = { ...candidate, status: 'inbox' };
   const name = localName(candidate);
+  const target = targetOf(base);
+  // Guard order is a spec clause: Personal, Deleted, Duplicate, then Inbox (05-state-capture § Notes, T-14).
+  // `duplicateOf` falls back to the row's own ref when only the source holds the original (lost index).
   const personalOriginal = facts.sameHash.find((row) => row.status === 'personal');
   if (personalOriginal !== undefined || facts.personalAtSource) {
-    const row: CaptureRow = { ...base, status: 'personal', duplicateOf: personalOriginal?.ref ?? candidate.ref };
+    const row = withoutPrivateText({ ...base, status: 'personal', duplicateOf: personalOriginal?.ref ?? candidate.ref });
     return ok('personal', [
-      { kind: 'source-mark-personal', ref: candidate.ref, localName: name },
+      { kind: 'source-mark-personal', ref: candidate.ref, target },
       { kind: 'index-write', row },
     ]);
   }
@@ -74,7 +89,7 @@ const scan = (capture: CaptureRow | undefined, candidate: ScanCandidate, facts: 
     const deletedOriginal = facts.sameHash.find((row) => row.status === 'deleted');
     const row: CaptureRow = { ...base, status: 'deleted', duplicateOf: deletedOriginal?.ref ?? candidate.ref };
     return ok('deleted', [
-      { kind: 'source-trash', ref: candidate.ref, localName: name },
+      { kind: 'source-trash', ref: candidate.ref, target },
       { kind: 'index-write', row },
     ]);
   }
@@ -96,8 +111,14 @@ const file = (capture: CaptureRow | undefined, decision: FileDecision, timestamp
   if (capture.status !== 'inbox' && capture.status !== 'triaged') {
     return reject(capture, 'file applies to an inbox or triaged capture');
   }
-  const answer: DecisionLine['answer'] | undefined =
-    capture.status === 'triaged' ? 'correction' : capture.doubtAnswer === 'work' ? 'work' : undefined;
+  const correction = capture.status === 'triaged';
+  if (correction && (decision.model !== OWNER_MODEL || decision.confidence !== undefined)) {
+    return reject(capture, `a correction carries model "${OWNER_MODEL}" and no confidence`);
+  }
+  // The answer label brick 6 values: `work` after a doubt the owner kept, `correction` on an owner re-file.
+  let answer: DecisionLine['answer'] | undefined;
+  if (correction) answer = 'correction';
+  else if (capture.doubtAnswer === 'work') answer = 'work';
   const line: DecisionLine = {
     contentHash: capture.contentHash,
     timestamp,
@@ -145,20 +166,17 @@ const resolve = (capture: CaptureRow | undefined, answer: Answer, duplicates: re
   }
   const next: Status = answer === 'personal' ? 'personal' : 'deleted';
   const sourceKind = answer === 'personal' ? 'source-mark-personal' : 'source-trash';
-  const name = localName(capture);
-  const { reasoning: _reasoning, ...withoutReasoning } = capture;
-  const primary: CaptureRow = { ...withoutReasoning, status: next, doubtAnswer: answer };
+  // The primary row is written last: while it is still doubtful, a failed duplicate leaves a re-runnable `resolve`.
   const effects: Effect[] = [
-    { kind: 'delete-local', localName: name },
-    { kind: sourceKind, ref: capture.ref, localName: name },
-    { kind: 'index-write', row: primary },
+    { kind: 'delete-local', localName: localName(capture) },
+    { kind: sourceKind, ref: capture.ref, target: targetOf(capture) },
   ];
   for (const duplicate of duplicates) {
-    const { reasoning: _dupReasoning, ...dup } = duplicate;
     effects.push(
-      { kind: sourceKind, ref: duplicate.ref, localName: localName(duplicate) },
-      { kind: 'index-write', row: { ...dup, status: next } },
+      { kind: sourceKind, ref: duplicate.ref, target: targetOf(duplicate) },
+      { kind: 'index-write', row: withoutPrivateText({ ...duplicate, status: next }) },
     );
   }
+  effects.push({ kind: 'index-write', row: withoutPrivateText({ ...capture, status: next, doubtAnswer: answer }) });
   return ok(next, effects);
 };

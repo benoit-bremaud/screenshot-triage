@@ -1,4 +1,4 @@
-import type { CaptureRow } from './capture.js';
+import { idOf, type CaptureRow, type SourceTarget } from './capture.js';
 import type { DecisionLine } from './decision.js';
 import type { Domain } from './domains.js';
 
@@ -10,8 +10,8 @@ export type Effect =
   | { readonly kind: 'copy-to-inbox'; readonly ref: string; readonly localName: string }
   | { readonly kind: 'move-to-domain'; readonly localName: string; readonly domain: Domain }
   | { readonly kind: 'delete-local'; readonly localName: string }
-  | { readonly kind: 'source-mark-personal'; readonly ref: string; readonly localName: string }
-  | { readonly kind: 'source-trash'; readonly ref: string; readonly localName: string }
+  | { readonly kind: 'source-mark-personal'; readonly ref: string; readonly target: SourceTarget }
+  | { readonly kind: 'source-trash'; readonly ref: string; readonly target: SourceTarget }
   | { readonly kind: 'log-append'; readonly line: DecisionLine }
   | { readonly kind: 'index-write'; readonly row: CaptureRow };
 
@@ -25,12 +25,12 @@ export const describeEffect = (effect: Effect): string => {
     case 'delete-local':
       return `delete local ${effect.localName}`;
     case 'source-mark-personal':
-      return `source.markPersonal(${effect.localName})`;
+      return `source.markPersonal(${effect.target.localName})`;
     case 'source-trash':
-      return `source.trash(${effect.localName})`;
+      return `source.trash(${effect.target.localName})`;
     case 'log-append':
-      return `append decision for ${effect.line.contentHash.slice(0, 12)} (${effect.line.domain})`;
+      return `append decision for ${idOf(effect.line.contentHash)} (${effect.line.domain})`;
     case 'index-write':
-      return `index: ${effect.row.contentHash.slice(0, 12)} -> ${effect.row.status}`;
+      return `index: ${idOf(effect.row.contentHash)} -> ${effect.row.status}`;
   }
 };

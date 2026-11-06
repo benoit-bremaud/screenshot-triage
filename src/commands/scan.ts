@@ -1,36 +1,37 @@
 import { createHash } from 'node:crypto';
-import { join } from 'node:path';
 
-import { INBOX_FOLDER, runEffects } from '../effects.js';
-import type { CaptureSource } from '../sources/capture-source.js';
-import { idOf, localName, type CaptureRow } from '../triage/capture.js';
+import { runEffects } from '../effects.js';
+import { idOf } from '../triage/capture.js';
 import { detectImageExt } from '../triage/image.js';
-import { transition, type ScanCandidate } from '../triage/transition.js';
-import { EXIT_OK, UsageError, type CommandContext } from './context.js';
-
-export interface InboxEntry {
-  readonly id: string;
-  readonly path: string;
-  readonly ocrText?: string;
-  readonly doubtAnswer?: string;
-}
+import type { Status } from '../triage/status.js';
+import { scanRevisits, transition, type ScanCandidate } from '../triage/transition.js';
+import { EXIT_OK, entryOf, requireSource, type CaptureEntry, type CommandContext } from './context.js';
 
 export interface ScanReport {
-  readonly inbox: readonly InboxEntry[];
+  /** Every capture awaiting a decision, new or not. */
+  readonly inbox: readonly CaptureEntry[];
   /** Candidates whose bytes are not a whitelisted image; reported on every scan (UC1 ext. 2b). */
   readonly rejected: number;
-  readonly seen: Record<string, number>;
+  /** Candidates whose id matches a different hash already indexed; nothing is written for them. */
+  readonly collisions: number;
+  /** Rows written by this scan, per status. */
+  readonly seen: Partial<Record<Status, number>>;
 }
 
-/** UC1 steps 2 and extensions 2a, 2b: SEQ-triage-batch. */
+/**
+ * UC1 step 2 (SEQ-triage-batch): lists the source, hashes every new capture (or one whose ref
+ * came back after a final status), runs the four guards and copies the inbox ones into
+ * `data/inbox/<id>.<ext>`. Prints a JSON `ScanReport`. With `--dry-run` nothing is written.
+ */
 export const scan = async (context: CommandContext): Promise<number> => {
   const source = requireSource(context);
   const finalIds = await source.finalIds();
-  const seen: Record<string, number> = {};
+  const seen: Partial<Record<Status, number>> = {};
   let rejected = 0;
+  let collisions = 0;
   for (const capture of await source.listCaptures()) {
     const existing = context.index.byRef(capture.ref);
-    if (existing !== undefined && existing.status !== 'deleted') continue;
+    if (!scanRevisits(existing)) continue;
     const bytes = await source.read(capture.ref);
     const ext = detectImageExt(bytes);
     if (ext === undefined) {
@@ -38,8 +39,12 @@ export const scan = async (context: CommandContext): Promise<number> => {
       continue;
     }
     const contentHash = createHash('sha256').update(bytes).digest('hex');
-    const candidate: ScanCandidate = { ...capture, contentHash, ext };
     const id = idOf(contentHash);
+    if (context.index.latestById(id) !== undefined && context.index.byHash(contentHash).length === 0) {
+      collisions += 1;
+      continue;
+    }
+    const candidate: ScanCandidate = { ...capture, contentHash, ext };
     const result = transition(existing, {
       type: 'scan',
       candidate,
@@ -49,29 +54,16 @@ export const scan = async (context: CommandContext): Promise<number> => {
         trashedAtSource: finalIds.trashed.has(id),
       },
     });
+    // `scanRevisits` is the guard `transition` applies: a rejection here cannot happen.
     if (!result.ok) throw new Error(result.reason);
-    await runEffects(result.effects, { ...context, print: context.out }, context.dryRun);
+    await runEffects(result.effects, context);
     seen[result.next] = (seen[result.next] ?? 0) + 1;
   }
-  const report: ScanReport = { inbox: inboxEntries(context), rejected, seen };
+  const inbox: CaptureEntry[] = [];
+  for (const row of context.index.all()) {
+    if (row.status === 'inbox') inbox.push(await entryOf(context, row));
+  }
+  const report: ScanReport = { inbox, rejected, collisions, seen };
   context.out(JSON.stringify(report));
   return EXIT_OK;
-};
-
-export const inboxEntries = (context: CommandContext): InboxEntry[] =>
-  context.index
-    .all()
-    .filter((row) => row.status === 'inbox')
-    .map((row) => entry(context.dataDir, row));
-
-export const entry = (dataDir: string, row: CaptureRow): InboxEntry => ({
-  id: idOf(row.contentHash),
-  path: join(dataDir, row.status === 'triaged' && row.domain !== undefined ? row.domain : INBOX_FOLDER, localName(row)),
-  ...(row.ocrText === undefined ? {} : { ocrText: row.ocrText }),
-  ...(row.doubtAnswer === undefined ? {} : { doubtAnswer: row.doubtAnswer }),
-});
-
-export const requireSource = (context: CommandContext): CaptureSource => {
-  if (context.source === undefined) throw new UsageError('this command needs --source <dir>');
-  return context.source;
 };
