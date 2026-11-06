@@ -52,7 +52,7 @@ flowchart LR
 
 - **Level**: user goal
 - **Primary actor**: Owner
-- **Stakeholders & interests**: Owner — every new capture lands in the right domain folder with reusable tags, nothing the owner has not already answered is deleted at this step, nothing about a possibly personal capture leaves the PC; future skills (brick 4) — tags and domains are consistent; brick 6 — every filing decision is logged with its reasoning.
+- **Stakeholders & interests**: Owner — every new capture lands in the right domain folder with reusable tags, nothing the owner has not already answered is deleted at this step, nothing about a possibly personal capture leaves the PC; future skills (brick 4) — tags and domains are consistent; brick 6 — every filing decision is logged, its reasoning kept in the private index.
 - **Preconditions**: the source is reachable; the data folder and the index exist or are created on first run.
 - **Minimal guarantee**: no capture is lost or deleted, except a returning copy of one the owner already answered personal or delete (ext. 2a applies that earlier answer, and `scan --dry-run` prints it without applying it); a capture that could not be classified stays in the inbox with status `inbox` or `doubtful`; no free text about a doubtful capture is written outside the git-ignored `data/`.
 - **Success guarantee**: every new capture has a row in the index with status `triaged`, `doubtful` or `duplicate`, or `personal` / `deleted` for a returning copy of an answered capture; triaged files sit under `data/<domain>/`; every filing is appended to the decision log.
@@ -61,10 +61,10 @@ flowchart LR
 **Main success scenario**
 
 1. Owner asks for a triage.
-2. System lists the captures of the source whose ref is not yet in the index, reads each one, checks its magic bytes against the image whitelist, computes its content hash and copies it into the inbox as `<id>.<ext>`.
+2. System lists the captures of the source whose ref is not yet in the index, or whose row is `deleted` (an asset restored from the Immich trash keeps its ref), reads each one, checks its magic bytes against the image whitelist, computes its content hash and copies it into the inbox as `<id>.<ext>`.
 3. System presents each inbox capture (image, OCR text when the source has it) with the domain list and the current tag list (from `tags`).
 4. Vision model returns a domain, tags (reused before created, with the existing tags it considered), a confidence and a two-to-three-sentence reasoning.
-5. System moves the file into the domain folder, records the row with status `triaged` and appends the decision (keyed by content hash, never by ref) to the decision log.
+5. System moves the file into the domain folder, appends the decision labels (keyed by content hash, never by ref, no reasoning) to the decision log and records the row with status `triaged`, reasoning included.
 6. Steps 3–5 repeat for every inbox capture.
 7. System reports the batch: counts per domain, new tags, number of doubtful captures held.
 

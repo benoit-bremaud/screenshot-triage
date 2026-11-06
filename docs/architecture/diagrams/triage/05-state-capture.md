@@ -48,7 +48,7 @@ stateDiagram-v2
 | — | `scan` [hash known, original not final] | Duplicate | row with `duplicateOf`, no copy | T-2 |
 | — | `scan` [hash of a personal capture, or id in `Personnel/`] | Personal | row with `duplicateOf`, `source.markPersonal` (collision rule) | T-14 |
 | — | `scan` [id still in `.trash/`] | Deleted | row with `duplicateOf`, `source.trash` (collision rule) | T-14 |
-| Inbox | `file(decision)` | Triaged | move to `data/<domain>/<id>.<ext>`, decision appended (skipped if already there), index written, in that order | T-3 |
+| Inbox | `file(decision)` | Triaged | move to `data/<domain>/<id>.<ext>`, decision labels appended (skipped only if the last line for the hash is identical), index row written with the reasoning, in that order | T-3 |
 | Inbox | `doubt(category, reasoning)` [doubtAnswer ≠ work] | Doubtful | index row only, nothing appended to the log | T-4 |
 | Doubtful | `resolve(work)` | Inbox | `doubtAnswer = work` on the row; the following `file` logs `answer = work` | T-5 |
 | Doubtful | `resolve(personal)` | Personal | local delete, `source.markPersonal` of the capture and its duplicates, reasoning cleared | T-6, T-14 |
