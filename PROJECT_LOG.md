@@ -2,6 +2,13 @@
 
 Chronological logbook of decisions and events, complementing `git log`. Newest entry first.
 
+## 2026-11-06 — Brick 2 code: triage CLI on a local-directory source (#2)
+
+- The CLI of the validated conception lands in `src/`: `scan · file · doubt · resolve · status · tags`, the pure `transition(capture, event)` of `05-state-capture.md` in `src/triage/`, the effect runner with `--dry-run`, the private index and the labels-only decision log in `src/store/`, the `CaptureSource` port and the local-directory adapter (`Personnel/`, `.trash/`, copies named `<id>.<ext>` from the magic bytes).
+- Dependencies (MCDA, 465 vs 400 zero-dependency and 335 commander + zod + file-type): `zod` for the one stdin schema, `node:util` parseArgs, magic bytes in-house. TypeScript 6 because typescript-eslint does not accept TypeScript 7 yet.
+- Tests T-1 to T-15 of the traceability matrix on vitest, driving the CLI in process over a temporary directory, plus one spawn of the entry point; coverage 95 %. CI: typecheck, eslint (the `no-restricted-imports` dependency rule, probed with forbidden imports), vitest with an 80 % threshold, gitleaks.
+- Port refinement recorded in `03-component.md`: `markPersonal` and `trash` take the `<id>.<ext>` name, `finalIds()` lists the ids in `Personnel/` and `.trash/` for the two `scan` guards.
+
 ## 2026-11-06 — Triage UML study and ADR-0002
 
 - Brick 2 (#2) starts with its conception: use case, two sequences, component, capture state machine and data flow under `docs/architecture/diagrams/triage/`, requirements REQ-1 to REQ-8, glossary and traceability matrix.

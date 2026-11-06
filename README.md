@@ -23,6 +23,8 @@ Boundary test between design and frontend: "if the code is removed, does the adv
 ```
 src/cli.ts      TypeScript CLI: scan | file | doubt | resolve | status | tags (bricks 2-3), --dry-run;
                 extract | enrich | purge from brick 4
+  main.ts       bin entry point (stdin, exit code)
+  commands/     one module per command
   sources/      CaptureSource port, local-directory adapter, Immich adapter (@immich/sdk, brick 3)
   triage/       domains, tag rules, decision schema, status transitions and their effects
   effects.ts    runs the effects in order, or prints them with --dry-run
@@ -34,9 +36,25 @@ docs/           architecture: ADRs, UML diagrams, requirements, QA
 tests/          vitest, Immich mocked at the boundary
 ```
 
+## Usage (brick 2, local directory)
+
+```bash
+npm install && npm run build
+node dist/main.js scan --source ~/Screenshots            # copy new captures into data/inbox, JSON report
+echo '{"promptVersion":"triage-v1","model":"claude-sonnet-5-5","domain":"frontend","tags":["react"],"consideredTags":[],"confidence":0.9,"reasoning":"..."}' \
+  | node dist/main.js file <id>                           # Inbox -> Triaged, labels appended to knowledge/decisions.jsonl
+echo '{"promptVersion":"triage-v1","model":"claude-sonnet-5-5","category":"personal-suspected","reasoning":"..."}' \
+  | node dist/main.js doubt <id>                          # held, asked after the batch
+node dist/main.js resolve <id> --as personal --source ~/Screenshots --dry-run
+node dist/main.js status --json
+node dist/main.js tags
+```
+
+`<id>` is the first 12 hex characters of the capture's SHA-256; a filename never reaches argv. `npm run check` runs typecheck, lint and the tests (the CI mirror).
+
 ## Status
 
-Brick 0: repository created, decisions recorded. Brick 2 (triage CLI with a local-directory source): conception done under `docs/architecture/`, code next. Brick 1 (Immich on the homelab) in `bb-homelab`. Planned: 3 Immich adapter, 4 extraction and enrichment PR, 5 Google Photos backlog, 6 local model in shadow mode.
+Brick 0: repository created, decisions recorded. Brick 2 (triage CLI with a local-directory source): conception and code done. Brick 1 (Immich on the homelab) in `bb-homelab`. Planned: 3 Immich adapter, 4 extraction and enrichment PR, 5 Google Photos backlog, 6 local model in shadow mode.
 
 ## Licence
 
