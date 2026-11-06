@@ -63,6 +63,17 @@ describe('LocalDirectorySource', () => {
     expect((await source.finalIds()).trashed).toEqual(new Set(['abcdef012345']));
   });
 
+  it('keeps the source copy when the final record is a symbolic link', async () => {
+    const outside = await mkdtemp(join(tmpdir(), 'outside-'));
+    await writeFile(join(outside, 'record.png'), 'bytes');
+    await mkdir(join(root, '.trash'));
+    await symlink(join(outside, 'record.png'), join(root, '.trash', target.localName));
+
+    await expect(source.trash('a.png', target)).rejects.toThrow('holds other bytes');
+    expect(await readFile(join(root, 'a.png'), 'utf8')).toBe('bytes');
+    await rm(outside, { recursive: true, force: true });
+  });
+
   it('keeps the source copy when the final record holds other bytes', async () => {
     await mkdir(join(root, '.trash'));
     await writeFile(join(root, '.trash', target.localName), 'corrupted');

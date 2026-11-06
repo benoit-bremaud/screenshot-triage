@@ -1,7 +1,7 @@
 import { lstat, mkdir, readdir, readFile, rename, rm, stat } from 'node:fs/promises';
 import { isAbsolute, join, relative, sep } from 'node:path';
 
-import { exists, isMissing } from '../fs.js';
+import { isMissing } from '../fs.js';
 import { contentHashOf, isCaptureId, type SourceTarget } from '../triage/capture.js';
 import type { CaptureSource, FinalIds, SourceCapture } from './capture-source.js';
 
@@ -97,9 +97,14 @@ export class LocalDirectorySource implements CaptureSource {
     const changed = info.size !== target.size || info.mtime.toISOString() !== target.takenAt;
     if (changed && contentHashOf(await readFile(from)) !== target.contentHash) return;
     await mkdir(join(this.root, folder), { recursive: true });
-    if (await exists(destination)) {
-      // The final folders are never read (REQ-5): their record is checked by size only before the copy goes.
-      if ((await stat(destination)).size !== target.size) {
+    const record = await lstat(destination).catch((error: unknown) => {
+      if (isMissing(error)) return undefined;
+      throw error;
+    });
+    if (record !== undefined) {
+      // The final folders are never read (REQ-5): their record, a regular file never a link, is checked
+      // by size only before the copy goes.
+      if (!record.isFile() || record.size !== target.size) {
         throw new Error(`${folder}/${target.localName} holds other bytes; settle it by hand`);
       }
       await rm(from);
