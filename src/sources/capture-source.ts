@@ -30,7 +30,7 @@ export interface CaptureSource {
   /**
    * Files the capture as personal under `target.localName`. A ref already gone is a no-op. A file whose
    * size or time differ from `target` is hashed (never interpreted) and left alone unless its bytes are
-   * the scanned ones. A duplicate whose target name already exists is removed instead.
+   * the scanned ones. A duplicate whose target name already exists is removed instead, after a size check of that record (its bytes are never read).
    */
   markPersonal(ref: string, target: SourceTarget): Promise<void>;
   /** Same contract as `markPersonal`, into the trash. */

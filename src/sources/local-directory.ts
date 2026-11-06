@@ -98,8 +98,8 @@ export class LocalDirectorySource implements CaptureSource {
     if (changed && contentHashOf(await readFile(from)) !== target.contentHash) return;
     await mkdir(join(this.root, folder), { recursive: true });
     if (await exists(destination)) {
-      // Remove the copy only when the final record really holds the capture's bytes.
-      if (contentHashOf(await readFile(destination)) !== target.contentHash) {
+      // The final folders are never read (REQ-5): their record is checked by size only before the copy goes.
+      if ((await stat(destination)).size !== target.size) {
         throw new Error(`${folder}/${target.localName} holds other bytes; settle it by hand`);
       }
       await rm(from);
