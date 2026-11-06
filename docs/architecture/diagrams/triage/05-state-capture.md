@@ -6,7 +6,7 @@
 
 ## Context
 
-The lifecycle of one capture as recorded in `data/index.jsonl`. The state names, lowercased, are the values of the `status` enum in `src/triage/`; the diagram is the source of truth for the legal transitions and the code must refuse the others. Deletion is an effect of exactly four transitions: two owner answers, the purge after a sheet, and the purge of a duplicate whose original is final.
+The lifecycle of one capture as recorded in `data/index.jsonl`. The state names, lowercased, are the values of the `status` enum in `src/triage/`; the diagram is the source of truth for the legal transitions and the code must refuse the others. Deletion is an effect of exactly four events: two owner answers (applied to the capture and its duplicates), the purge after a sheet, and the purge of a duplicate whose original was purged.
 
 ## Diagram
 
@@ -25,7 +25,9 @@ stateDiagram-v2
   Doubtful --> Deleted: resolve(delete) / delete local file, source.trash (duplicates too)
   Triaged --> Extracted: sheet written (brick 4) / thumbnail if design gem
   Extracted --> Deleted: purge (brick 4) / delete local file, source.trash
-  Duplicate --> Deleted: purge [original final] (brick 4) / source.trash
+  Duplicate --> Personal: resolve(personal) on the original / source.markPersonal
+  Duplicate --> Deleted: resolve(delete) on the original / source.trash
+  Duplicate --> Deleted: purge [original deleted by purge] (brick 4) / source.trash
   Personal --> [*]
   Deleted --> [*]
   note right of Triaged
@@ -52,7 +54,9 @@ stateDiagram-v2
 | any other (state, event) pair | — | unchanged | rejected with the current status, non-zero exit | T-10 |
 | Triaged | sheet written | Extracted | brick 4 | brick 4 |
 | Extracted | purge | Deleted | brick 4 | brick 4 |
-| Duplicate | purge [original final] | Deleted | brick 4 | brick 4 |
+| Duplicate | `resolve(personal)` on the original | Personal | `source.markPersonal` (or removal from the source when `Personnel/<id>.<ext>` already holds the identical bytes) | T-14 |
+| Duplicate | `resolve(delete)` on the original | Deleted | `source.trash` (same collision rule) | T-14 |
+| Duplicate | purge [original deleted by purge] | Deleted | brick 4 | brick 4 |
 
 T-9 (90-day reminder) and T-11 to T-13 belong to UC3 and the tag rules, not to this machine; T-14 (a fresh `scan` after losing the index lists no personal or deleted capture) belongs to the source; see the matrix.
 
@@ -60,5 +64,5 @@ T-9 (90-day reminder) and T-11 to T-13 belong to UC3 and the tag rules, not to t
 
 - **Rejected events** (T-10 covers one of each): `resolve` on a non-doubtful capture, `file` on a deleted, personal, doubtful or duplicate capture, `doubt` on a triaged capture or on an inbox capture whose `doubtAnswer` is `work`.
 - **Personal and Deleted are the final statuses** (glossary "Final status") and never re-enter: a personal capture is never read again (REQ-5); a wrongly deleted asset is restored by the owner in the source trash, outside this tool. The source records both durably, so losing the index never resurfaces them.
-- **Duplicate** is reached only from the initial pseudostate: the duplicate file is never copied, so there is nothing local to delete. Its source asset follows its original: marked personal or trashed in the same `resolve` effect list when the original is answered personal or delete, or trashed at the brick 4 purge once the original is purged (the guard `[original final]` keeps the CLAUDE.md invariant).
+- **Duplicate** is reached only from the initial pseudostate: the duplicate file is never copied, so there is nothing local to delete. Its row follows its original: when the original is answered personal or delete, every `duplicateOf` row takes the same final status in the same `resolve` effect list, with the same source action, so the brick 4 purge never touches it again; the purge only trashes a duplicate whose original it purged itself (the guard keeps the CLAUDE.md invariant). On the local source a duplicate and its original share the `<id>.<ext>` name: when the target already exists, the duplicate file is removed from the source instead of moved, the bytes being identical.
 - The `Inbox → Inbox` case after a failed move (UC1 ext. 5a) is not a transition: the row keeps `inbox` with an `error` field and the next `scan` presents it again.

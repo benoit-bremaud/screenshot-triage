@@ -11,11 +11,11 @@ Every domain term used in the diagrams, defined once. Alphabetical, English head
 | Confidence | The model's self-assessed probability, 0 to 1, that the domain is right; stored in the decision log. | ADR-0002 |
 | Content hash | SHA-256 of the file bytes; detects duplicates and identifies a capture in the versioned decision log so no filename reaches Git. | ADR-0002 |
 | Correction | A `file` on an already triaged capture by the owner, moving it to another domain; logged with `answer: correction`, `model: owner` and no confidence, so brick 6 can tell human labels from model labels. | `01-use-case.md` UC1 ext. 5b |
-| Decision log | `knowledge/decisions.jsonl`, append-only, versioned, one line per `file` decision; training material for brick 6. | ADR-0002 |
+| Decision log | `knowledge/decisions.jsonl`, append-only, versioned, one line per `file` decision; training material for brick 6, which reads the last line per hash. | ADR-0002 |
 | Decision payload | The JSON object a `file` or `doubt` command reads on stdin: prompt version, model, domain, tags, considered tags, confidence, reasoning (or category for a doubt). | ADR-0002 |
 | Design gem | A `design` capture worth keeping as an 800 px thumbnail outside Git when purged (brick 4). | ADR-0001 decision 7 |
 | Final status | `personal` or `deleted`: the capture is gone from the PC and recorded as such at the source. `extracted` is not final; the purge makes an extracted capture `deleted`. The duplicate guard "original final" uses this definition. | `05-state-capture.md` |
-| Id | The first 12 hex characters of the content hash; the only capture identifier that travels on argv, and the name of every local copy (`data/inbox/<id>.<ext>`, `data/<domain>/<id>.<ext>`, `Personnel/<id>.<ext>`, `.trash/<id>.<ext>`). Unique among addressable rows because duplicates receive no command. | ADR-0002 |
+| Id | The first 12 hex characters of the content hash; the only capture identifier that travels on argv, and the name of every local copy (`data/inbox/<id>.<ext>`, `data/<domain>/<id>.<ext>`, `Personnel/<id>.<ext>`, `.trash/<id>.<ext>`; `<ext>` from the magic bytes, whitelisted). Unique among addressable rows because duplicates receive no command. | ADR-0002 |
 | Domain | One of the eight fixed folders a capture is filed into; the dominant subject of the capture. | ADR-0001 § Taxonomy |
 | Doubt | The model's refusal to pick a domain, with a category: `personal-suspected`, `unreadable` or `off-topic`; holds the capture until the owner answers. | CLAUDE.md |
 | Index | `data/index.jsonl`, git-ignored, one row per capture: ref, filename, content hash, status, domain, tags, doubt category and reasoning, owner answer. | ADR-0002 |

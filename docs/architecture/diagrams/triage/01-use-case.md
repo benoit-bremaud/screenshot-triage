@@ -61,7 +61,7 @@ flowchart LR
 **Main success scenario**
 
 1. Owner asks for a triage.
-2. System lists the captures of the source whose ref is not yet in the index, reads each one, computes its content hash and copies it into the inbox as `<id>.<ext>`.
+2. System lists the captures of the source whose ref is not yet in the index, reads each one, checks its magic bytes against the image whitelist, computes its content hash and copies it into the inbox as `<id>.<ext>`.
 3. System presents each inbox capture (image, OCR text when the source has it) with the domain list and the current tag list (from `tags`).
 4. Vision model returns a domain, tags (reused before created, with the existing tags it considered), a confidence and a two-to-three-sentence reasoning.
 5. System moves the file into the domain folder, records the row with status `triaged` and appends the decision (keyed by content hash, never by ref) to the decision log.
@@ -70,6 +70,7 @@ flowchart LR
 
 **Extensions**
 
+- 2b. The bytes are not a whitelisted image: system rejects the capture and reports it; resumes at 6.
 - 2a. The content hash is already in the index: system records the capture as `duplicate` with a pointer to the original, copies nothing; resumes at 6.
 - 4a. The vision model declares a doubt (category `personal-suspected`, `unreadable` or `off-topic`): system records the row as `doubtful` with the category and keeps the model's reasoning in the index only (git-ignored); the batch continues; **extension point "Doubt"** → UC2 after the batch.
 - 4b. The vision model proposes a tag absent from the list: system accepts it if it is kebab-case English and not already present; the model names the existing tags it considered (the semantic judgement stays with the model); the new tag is listed in the report.
@@ -99,8 +100,8 @@ flowchart LR
 **Extensions**
 
 - 3a. Answer is **work** (keep as dev or design watch): system records `resolve --as work` in the index row and returns the capture to `inbox`; the vision model classifies it with doubt disallowed (`other` stays available); UC1 step 5 follows and the decision log entry carries `answer: work`.
-- 3b. Answer is **personal**: system deletes the local file without reading it further, asks the source to mark the asset personal (local directory: moved to its `Personnel/` subfolder; Immich: the `Personnel` album), records status `personal` in the index only.
-- 3c. Answer is **delete**: system deletes the local file, asks the source to trash the asset (local directory: moved to its `.trash/` subfolder; Immich: the trash), records status `deleted` in the index only.
+- 3b. Answer is **personal**: system deletes the local file without reading it further, asks the source to mark the asset personal (local directory: moved to its `Personnel/` subfolder; Immich: the `Personnel` album), records status `personal` in the index only; its duplicates follow (same status, same source action).
+- 3c. Answer is **delete**: system deletes the local file, asks the source to trash the asset (local directory: moved to its `.trash/` subfolder; Immich: the trash), records status `deleted` in the index only; its duplicates follow.
 - 3d. `--dry-run` is set on a personal or delete answer: system prints the effects and changes nothing.
 - *a. Owner postpones: the capture stays `doubtful` and is listed by UC3.
 

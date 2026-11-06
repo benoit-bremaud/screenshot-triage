@@ -64,5 +64,5 @@ sequenceDiagram
 - The tag list comes from `tags` once per batch and travels with every classification request so the model reuses before creating (REQ-2); a new tag comes with `consideredTags`.
 - Bound of the loops: the number of captures returned by `listCaptures()`; large backlogs (brick 5) are fed in batches of 20–30 by the source.
 - A failed move (UC1 ext. 5a) leaves the row at `inbox`; the next `scan` presents it again. Effect order inside `file`: move, log append (skipped when the last line for that hash already matches), index write; a crash leaves the row `inbox`, `scan` finds the file by `<id>.<ext>` in `data/inbox/` then in every domain folder, and re-running `file` completes the index write without a second log line (ADR-0002).
-- Local copies are named `<id>.<ext>`, so the `path` returned to the session never carries the source filename (REQ-9).
+- Local copies are named `<id>.<ext>`, the extension taken from the magic bytes against a whitelist, so the `path` returned to the session never carries any part of the source filename (REQ-9).
 - The OCR text is optional: absent on a local directory (brick 2), present with Immich (brick 3).

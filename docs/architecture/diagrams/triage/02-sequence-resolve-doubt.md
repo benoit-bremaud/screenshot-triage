@@ -35,14 +35,14 @@ sequenceDiagram
       Skill->>CLI: resolve ID --as personal
       CLI->>CLI: delete data/inbox/ID.EXT
       CLI->>Source: markPersonal(ref), and of every duplicateOf row
-      Source-->>CLI: done (local directory: moved to Personnel/ID.EXT)
-      CLI->>Store: upsert(status = personal, reasoning cleared)
+      Source-->>CLI: done (local directory: moved to Personnel/ID.EXT, a duplicate removed when the name exists)
+      CLI->>Store: upsert(status = personal, reasoning cleared), duplicates too
     else delete
       Skill->>CLI: resolve ID --as delete
       CLI->>CLI: delete data/inbox/ID.EXT
       CLI->>Source: trash(ref), and of every duplicateOf row
-      Source-->>CLI: done (local directory: moved to .trash/ID.EXT)
-      CLI->>Store: upsert(status = deleted)
+      Source-->>CLI: done (local directory: moved to .trash/ID.EXT, a duplicate removed when the name exists)
+      CLI->>Store: upsert(status = deleted), duplicates too
     end
     CLI-->>Skill: ok
   end
