@@ -3,15 +3,17 @@ import { isAbsolute, join, relative, sep } from 'node:path';
 
 import { isMissing } from '../fs.js';
 import { contentHashOf, isCaptureId, type SourceTarget } from '../triage/capture.js';
+import { IMAGE_EXTENSIONS } from '../triage/image.js';
 import type { CaptureSource, FinalIds, SourceCapture } from './capture-source.js';
 
 export const PERSONAL_FOLDER = 'Personnel';
 export const TRASH_FOLDER = '.trash';
 
-/** Final folders hold `<id>.<ext>` names; anything else there is ignored. */
+/** Final folders hold `<id>.<ext>` names with a whitelisted image extension; anything else there is ignored. */
 const idOfName = (fileName: string): string | undefined => {
-  const id = fileName.split('.')[0] ?? '';
-  return isCaptureId(id) ? id : undefined;
+  const [id = '', ext, ...rest] = fileName.split('.');
+  const image = (IMAGE_EXTENSIONS as readonly string[]).includes(ext ?? '');
+  return image && rest.length === 0 && isCaptureId(id) ? id : undefined;
 };
 
 /**

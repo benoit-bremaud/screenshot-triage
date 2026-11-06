@@ -112,8 +112,13 @@ describe('LocalDirectorySource', () => {
   it('lists ids only from the final folders, ignoring foreign names', async () => {
     await mkdir(join(root, '.trash'));
     await writeFile(join(root, '.trash', 'notes.txt'), 'x');
+    for (const name of ['0123456789ab', '0123456789ab.txt', '0123456789ab.png.bak']) {
+      await writeFile(join(root, '.trash', name), 'x');
+    }
+    await mkdir(join(root, 'Personnel'));
+    await writeFile(join(root, 'Personnel', 'ba9876543210.heic'), 'x');
 
     expect((await source.finalIds()).trashed).toEqual(new Set());
-    expect((await source.finalIds()).personal).toEqual(new Set());
+    expect((await source.finalIds()).personal).toEqual(new Set(['ba9876543210']));
   });
 });
