@@ -1,5 +1,5 @@
 import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
-import { isAbsolute, join, relative, resolve as resolvePath, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve as resolvePath, sep } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { EXIT_INTERNAL, EXIT_OK, EXIT_USAGE, UsageError, type CommandContext } from './commands/context.js';
@@ -69,13 +69,14 @@ const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => 
       help: { type: 'boolean', default: false },
     },
   });
-  const [command, id] = positionals;
+  const [command, id, ...extra] = positionals;
+  if (extra.length > 0) throw new UsageError(`unexpected argument: ${extra.join(' ')}`);
   if (values.help || command === undefined) {
     io.out(USAGE);
     return command === undefined && !values.help ? EXIT_USAGE : EXIT_OK;
   }
   if (values.source !== undefined) {
-    assertDisjoint(values.source, [values.data, values.knowledge]);
+    await assertDisjoint(values.source, [values.data, values.knowledge]);
     await pinSource(values.source, values.data, values['dry-run']);
   }
   const context: CommandContext = {
@@ -132,15 +133,31 @@ const pinSource = async (source: string, dataDir: string, dryRun: boolean): Prom
   }
 };
 
-/** True when `inner` is `outer` or sits inside it. */
+/** Real path of `path`, symbolic links followed; a missing tail is appended to its nearest existing ancestor. */
+const canonical = async (path: string): Promise<string> => {
+  const absolute = resolvePath(path);
+  try {
+    return await realpath(absolute);
+  } catch (error) {
+    const parent = dirname(absolute);
+    if (!isMissing(error) || parent === absolute) throw error;
+    return join(await canonical(parent), basename(absolute));
+  }
+};
+
+/** True when `inner` is `outer` or sits inside it; both are canonical paths. */
 const within = (outer: string, inner: string): boolean => {
-  const rel = relative(resolvePath(outer), resolvePath(inner));
+  const rel = relative(outer, inner);
   return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 };
 
 /** The source must not contain, or sit inside, the data or knowledge folders: a scan would eat its own copies. */
-const assertDisjoint = (source: string, folders: readonly string[]): void => {
-  if (folders.some((folder) => within(source, folder) || within(folder, source))) {
-    throw new UsageError('--source must not contain or sit inside --data or --knowledge');
+const assertDisjoint = async (source: string, folders: readonly string[]): Promise<void> => {
+  const root = await canonical(source);
+  for (const folder of folders) {
+    const path = await canonical(folder);
+    if (within(root, path) || within(path, root)) {
+      throw new UsageError('--source must not contain or sit inside --data or --knowledge');
+    }
   }
 };

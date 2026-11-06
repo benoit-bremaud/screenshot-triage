@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -124,5 +124,33 @@ describe('source root pinned in data/source.json', () => {
     expect(run.code).toBe(2);
     expect(await ws.exists('data', 'inbox', `${id}.png`)).toBe(true);
     expect((await ws.rowById(id))[0]?.status).toBe('doubtful');
+  });
+});
+
+describe('Codex review on PR #9', () => {
+  let ws: Workspace;
+  beforeEach(async () => {
+    ws = await Workspace.create();
+  });
+  afterEach(() => ws.dispose());
+
+  it('an extra positional argument is a usage error', async () => {
+    const id = await ws.addCapture('a.png', png('one'));
+
+    const run = await ws.run(['resolve', id, 'extra', '--as', 'delete', '--source', ws.source]);
+
+    expect(run.code).toBe(2);
+    expect(run.err[0]).toContain('unexpected argument');
+  });
+
+  it('a --source that reaches the data folder through a symbolic link is refused', async () => {
+    await mkdir(ws.data, { recursive: true });
+    const link = join(ws.root, 'link');
+    await symlink(ws.data, link);
+
+    const run = await ws.run(['scan', '--source', link]);
+
+    expect(run.code).toBe(2);
+    expect(run.err[0]).toContain('--source must not contain');
   });
 });
