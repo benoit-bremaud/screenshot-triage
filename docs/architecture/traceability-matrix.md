@@ -11,4 +11,4 @@ One row per use case and per non-functional requirement not realised by a use ca
 | NFR-2 | Dependency rule | CLAUDE.md | NFR-2 → `03-component.md` | `src/sources/` only | — | NFR-2 → lint rule `no-restricted-imports` | planned (#2) |
 | NFR-3 | Transition coverage | global rule | NFR-3 → `05-state-capture.md` § Transitions | tests | all | NFR-3 → T-1 to T-15 | planned (#2) |
 
-Test IDs: T-1 to T-8 and T-10 transitions and rejected events (`05-state-capture.md`); T-9 90-day reminder; T-11 invented domain rejected; T-12 tag format and reuse; T-13 `status` counts, candidates and doubtful list; T-14 a fresh `scan` after deleting the index lists no personal or deleted capture; T-15 a command with a ref or filename instead of an id is rejected.
+Test IDs: T-1 to T-8 and T-10 transitions and rejected events (`05-state-capture.md`); T-9 90-day reminder; T-11 invented domain rejected; T-12 tag format and reuse; T-13 `status` counts, candidates and doubtful list; T-14 a fresh `scan` after deleting the index lists no personal or deleted capture, nor a duplicate of one; T-15 a command with a ref or filename instead of an id is rejected and local copies are named by id.

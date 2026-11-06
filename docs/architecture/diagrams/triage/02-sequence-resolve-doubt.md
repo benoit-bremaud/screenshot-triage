@@ -29,19 +29,19 @@ sequenceDiagram
       CLI->>Store: upsert(status = inbox, doubtAnswer = work)
       Skill->>Skill: classify(image, ocrText, domains, tags, doubt disallowed)
       Skill->>CLI: file ID, stdin {decision payload}
-      CLI->>CLI: move to data/DOMAIN/
-      CLI->>Store: upsert(status = triaged) and append decision with answer = work
+      CLI->>CLI: move to data/DOMAIN/ID.EXT
+      CLI->>Store: append decision with answer = work, then upsert(status = triaged)
     else personal
       Skill->>CLI: resolve ID --as personal
-      CLI->>CLI: delete data/inbox/FILE
-      CLI->>Source: markPersonal(ref)
-      Source-->>CLI: done (local directory: moved to Personnel/)
+      CLI->>CLI: delete data/inbox/ID.EXT
+      CLI->>Source: markPersonal(ref), and of every duplicateOf row
+      Source-->>CLI: done (local directory: moved to Personnel/ID.EXT)
       CLI->>Store: upsert(status = personal, reasoning cleared)
     else delete
       Skill->>CLI: resolve ID --as delete
-      CLI->>CLI: delete data/inbox/FILE
-      CLI->>Source: trash(ref)
-      Source-->>CLI: done (local directory: moved to .trash/)
+      CLI->>CLI: delete data/inbox/ID.EXT
+      CLI->>Source: trash(ref), and of every duplicateOf row
+      Source-->>CLI: done (local directory: moved to .trash/ID.EXT)
       CLI->>Store: upsert(status = deleted)
     end
     CLI-->>Skill: ok
@@ -54,6 +54,6 @@ sequenceDiagram
 - **Dry run**: `resolve --as personal|delete --dry-run` prints the effects in order (local delete, source call, index change) and returns before any of them (REQ-6); `--as work` has no destructive effect and ignores the flag. Test T-7.
 - **Personal captures are never read** (REQ-5): the personal branch carries no image or OCR text to the model; the doubt reasoning is cleared from the index row and never reached the versioned log; the only data that leaves the capture is its ref, sent to the source.
 - **Order of effects**: the local file is deleted before the source call so a source failure (brick 3, network) cannot leave a readable personal file on the PC. Delete is idempotent, so a crash before the index write is repaired by running `resolve` again. Retrying a failed source call is designed in brick 3; on the local directory the source call is a move inside the same file system.
-- **Losing `data/` is safe**: a fresh `scan` lists neither `Personnel/` nor `.trash/`, so personal captures never come back (T-14).
+- **Losing `data/` is safe**: a fresh `scan` lists neither `Personnel/` nor `.trash/`, and a personal or delete answer moved the duplicates of the capture there too, so personal captures never come back, copies included (T-14).
 - The `work` branch records the owner's answer first (`Doubtful → Inbox`), then re-enters the UC1 flow with doubt disallowed; the decision log entry carries `answer: work`, the label brick 6 values most.
 - Doubtful files stay in `data/inbox/`; `status` and `resolve` select by index status, never by folder.

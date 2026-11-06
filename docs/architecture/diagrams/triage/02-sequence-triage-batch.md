@@ -33,7 +33,7 @@ sequenceDiagram
     alt hash already indexed
       CLI->>Store: upsert(ref, status = duplicate, duplicateOf)
     else new hash
-      CLI->>CLI: copy into data/inbox
+      CLI->>CLI: copy into data/inbox/ID.EXT
       CLI->>Store: upsert(ref, status = inbox, contentHash)
     end
   end
@@ -45,9 +45,9 @@ sequenceDiagram
       CLI->>Store: upsert(status = doubtful, category, reasoning) in the index only
     else domain found
       Skill->>CLI: file ID, stdin {promptVersion, model, domain, tags, consideredTags, confidence, reasoning}
-      CLI->>CLI: move data/inbox/FILE to data/DOMAIN/
-      CLI->>Store: upsert(status = triaged, domain, tags)
+      CLI->>CLI: move data/inbox/ID.EXT to data/DOMAIN/
       CLI->>Store: append decision (contentHash, no ref) unless the last line for the hash matches
+      CLI->>Store: upsert(status = triaged, domain, tags)
     end
     CLI-->>Skill: ok
   end
@@ -63,5 +63,6 @@ sequenceDiagram
 - **Free text never travels through argv**: the decision payload is one JSON object on stdin, validated against one schema in `src/triage/` (ADR-0002). A doubt payload is stored in the git-ignored index only; the versioned decision log receives `file` decisions only (REQ-4).
 - The tag list comes from `tags` once per batch and travels with every classification request so the model reuses before creating (REQ-2); a new tag comes with `consideredTags`.
 - Bound of the loops: the number of captures returned by `listCaptures()`; large backlogs (brick 5) are fed in batches of 20–30 by the source.
-- A failed move (UC1 ext. 5a) leaves the row at `inbox`; the next `scan` presents it again. Effect order inside `file`: move, index write, log append; `scan` resolves the path of an `inbox` row in `data/inbox/` then `data/<domain>/`, and the log append is refused when the last line for that hash already matches, so a crash between two effects is repaired by running `file` again (ADR-0002).
+- A failed move (UC1 ext. 5a) leaves the row at `inbox`; the next `scan` presents it again. Effect order inside `file`: move, log append (skipped when the last line for that hash already matches), index write; a crash leaves the row `inbox`, `scan` finds the file by `<id>.<ext>` in `data/inbox/` then in every domain folder, and re-running `file` completes the index write without a second log line (ADR-0002).
+- Local copies are named `<id>.<ext>`, so the `path` returned to the session never carries the source filename (REQ-9).
 - The OCR text is optional: absent on a local directory (brick 2), present with Immich (brick 3).

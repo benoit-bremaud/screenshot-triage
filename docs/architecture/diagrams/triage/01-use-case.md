@@ -61,7 +61,7 @@ flowchart LR
 **Main success scenario**
 
 1. Owner asks for a triage.
-2. System lists the captures of the source whose ref is not yet in the index, reads each one, computes its content hash and copies it into the inbox.
+2. System lists the captures of the source whose ref is not yet in the index, reads each one, computes its content hash and copies it into the inbox as `<id>.<ext>`.
 3. System presents each inbox capture (image, OCR text when the source has it) with the domain list and the current tag list (from `tags`).
 4. Vision model returns a domain, tags (reused before created, with the existing tags it considered), a confidence and a two-to-three-sentence reasoning.
 5. System moves the file into the domain folder, records the row with status `triaged` and appends the decision (keyed by content hash, never by ref) to the decision log.
@@ -114,6 +114,6 @@ flowchart LR
 
 ## Notes
 
-- Deletion never appears in UC1: it is a UC2 effect (owner answer) or a brick 4 effect (final status after the sheet, or a duplicate whose original is final). Reviewers should check that no step of UC1 removes a file.
+- Deletion never appears in UC1: it is a UC2 effect (owner answer) or a brick 4 effect (the purge after the sheet, or a duplicate whose original is final). Reviewers should check that no step of UC1 removes a file.
 - "Receive the doubt question" is not a use case; the owner's goal is UC2.
 - Open question for brick 3: whether a personal answer also removes the asset from the Screenshots album (the album move may suffice).
