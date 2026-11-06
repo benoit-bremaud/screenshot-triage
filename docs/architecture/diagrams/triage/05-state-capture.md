@@ -19,7 +19,7 @@ stateDiagram-v2
   [*] --> Inbox: scan [hash unknown] / copy to data/inbox
   [*] --> Duplicate: scan [hash known, original not final] / index row with duplicateOf
   [*] --> Personal: scan [hash of a personal capture, or id in Personnel/] / index row with duplicateOf, source.markPersonal
-  [*] --> Deleted: scan [hash of a deleted capture, or id in .trash/] / index row with duplicateOf, source.trash
+  [*] --> Deleted: scan [id still in .trash/] / index row with duplicateOf, source.trash
   Inbox --> Triaged: file(decision) / move to data/domain, append decision
   Inbox --> Doubtful: doubt(category, reasoning) [doubtAnswer is not work] / index row only
   Doubtful --> Inbox: resolve(work) / record the answer
@@ -47,14 +47,14 @@ stateDiagram-v2
 | — | `scan` [hash unknown] | Inbox | copy into `data/inbox/`, row with `contentHash` | T-1 |
 | — | `scan` [hash known, original not final] | Duplicate | row with `duplicateOf`, no copy | T-2 |
 | — | `scan` [hash of a personal capture] | Personal | row with `duplicateOf`, `source.markPersonal` (collision rule) | T-14 |
-| — | `scan` [hash of a deleted capture] | Deleted | row with `duplicateOf`, `source.trash` (collision rule) | T-14 |
+| — | `scan` [id still in `.trash/`] | Deleted | row with `duplicateOf`, `source.trash` (collision rule) | T-14 |
 | Inbox | `file(decision)` | Triaged | move to `data/<domain>/<id>.<ext>`, decision appended (skipped if already there), index written, in that order | T-3 |
 | Inbox | `doubt(category, reasoning)` [doubtAnswer ≠ work] | Doubtful | index row only, nothing appended to the log | T-4 |
 | Doubtful | `resolve(work)` | Inbox | `doubtAnswer = work` on the row; the following `file` logs `answer = work` | T-5 |
 | Doubtful | `resolve(personal)` | Personal | local delete, `source.markPersonal` of the capture and its duplicates, reasoning cleared | T-6, T-14 |
 | Doubtful | `resolve(delete)` | Deleted | local delete, `source.trash` of the capture and its duplicates | T-6, T-14 |
 | Doubtful | `resolve(personal or delete) --dry-run` | Doubtful | effects printed in order, nothing changed | T-7 |
-| — | `scan --dry-run` [hash of a personal or deleted capture] | — | source action printed, no row, nothing changed | T-7 |
+| — | `scan --dry-run` | — | nothing changed: no copy, no row, every effect printed in order, the 2a source action included | T-7 |
 | Triaged | `file(decision)` | Triaged | re-file to another domain folder, decision appended with `answer = correction` | T-8 |
 | any other (state, event) pair | — | unchanged | rejected with the current status, non-zero exit | T-10 |
 | Triaged | sheet written | Extracted | brick 4 | brick 4 |
@@ -68,7 +68,7 @@ T-9 (90-day reminder) and T-11 to T-13 belong to UC3 and the tag rules, not to t
 ## Notes
 
 - **Rejected events** (T-10 covers one of each): `resolve` on a non-doubtful capture, `file` on a deleted, personal, doubtful or duplicate capture, `doubt` on a triaged capture or on an inbox capture whose `doubtAnswer` is `work`.
-- **Personal and Deleted are the final statuses** (glossary "Final status") and never re-enter: a personal capture is never read again (REQ-5); a wrongly deleted asset is restored by the owner in the source trash, outside this tool. The source records both durably, so losing the index never resurfaces them.
+- **Personal and Deleted are the final statuses** (glossary "Final status") and never re-enter: a personal capture's content is never read again (REQ-5; only the ids in `Personnel/` are listed); a wrongly deleted asset is restored by the owner from the source trash, outside this tool, and the next `scan` then treats it as new (its id is no longer in `.trash/`, so the index row alone does not re-trash it; T-14). The source records both durably, so losing the index never resurfaces them.
 - **Duplicate** is reached only from the initial pseudostate, and only while its original is not final; a copy of a personal or deleted capture that comes back to the source (a phone re-sync) is settled by `scan` itself, so it is never readable after a lost `data/`: the duplicate file is never copied, so there is nothing local to delete. Its row follows its original: when the original is answered personal or delete, every `duplicateOf` row takes the same final status in the same `resolve` effect list, with the same source action, so the brick 4 purge never touches it again; the purge only trashes a duplicate whose original it purged itself (the guard keeps the CLAUDE.md invariant). On the local source a duplicate and its original share the `<id>.<ext>` name: when the target already exists, the duplicate file is removed from the source instead of moved, the bytes being identical.
-- The two `scan` guards on a final hash read the index and the source: a hash is final when its row says so, or when `<id>.<ext>` sits in `Personnel/` or `.trash/` (Immich: album or trash membership). So the guard still holds after `data/` is lost and a copy is re-synced (T-14). `scan --dry-run` prints the source action instead of applying it (T-7).
+- The two `scan` guards on a returning copy differ on purpose. Personal is the conservative one: the index row or an id in `Personnel/` (Immich: album membership) settles the copy, so it holds after `data/` is lost. Deleted uses the source as the only witness: the copy is re-trashed only while `.trash/<id>.<ext>` (Immich: trash membership) still exists, so a file the owner restored is triaged again as new (T-14). `scan --dry-run` changes nothing and prints every effect (T-7).
 - The `Inbox → Inbox` case after a failed move (UC1 ext. 5a) is not a transition: the row keeps `inbox` with an `error` field and the next `scan` presents it again.
