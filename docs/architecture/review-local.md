@@ -19,7 +19,7 @@
 - Round 9 on `c247a56`: 2 fixed · new Must 1 (overlapping `scan` guards, Personal vs Inbox) · Push gate: closed
 - Round 10 on `cb933af`: 1 fixed · new Must 1 (stale Personal guard in the transition table) · Should 1 (intro wording) · Push gate: closed
 - Round 11 on `fd4c512`: 2 fixed · 0 not fixed · 0 regressed · new Must 0 · **Push gate: open — 0 Must open**
-- Hosted reviewers (filled at the pre-merge run): Copilot pending · Codex optional
+- Hosted reviewers: Copilot not requestable on this repository (Copilot code review not enabled; REST request returns no reviewer) · **waived by the owner on 2026-11-06 for PR #7** (docs only, 11 adversarial rounds) · Codex not installed
 
 ## Pre-merge gate (head SHA fd4c512)
 
@@ -28,10 +28,10 @@
 | 0 CI mirror | n/a — no `.github/workflows/` yet |
 | 1 Tests | n/a — no code, no suite yet |
 | 2 Coverage | ⏸ deferred (no code) |
-| 3 SonarQube | ⏸ deferred to the pre-merge run (`--push`) |
+| 3 SonarQube | ⚠️ no SonarQube project for this repository yet (docs only, no code) |
 | 4 Secrets | ✅ gitleaks clean (main..HEAD, 11 commits) · tracked env files: `.env.example` only (placeholders) · diff read: nothing sensitive |
 | 5 E2E/smoke | ⏸ deferred (`--push`) |
-- Gate: `--push`: **pre-push green** — adversarial gate open, no `justfile` (steps 1 to 3 and 5 deferred to the pre-merge run)
+- Gate: `--push`: **pre-push green** — adversarial gate open, no `justfile`. Pre-merge on PR #7 (head `05caae0`, differs from `fd4c512` by this report only): no CI workflow, no code, no SonarQube project; secrets step green; Copilot waived by the owner (above).
 
 ## 🔴 Must Have
 
