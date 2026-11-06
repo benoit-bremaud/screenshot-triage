@@ -52,10 +52,10 @@ flowchart LR
 
 - **Level**: user goal
 - **Primary actor**: Owner
-- **Stakeholders & interests**: Owner — every new capture lands in the right domain folder with reusable tags, nothing is deleted at this step, nothing about a possibly personal capture leaves the PC; future skills (brick 4) — tags and domains are consistent; brick 6 — every filing decision is logged with its reasoning.
+- **Stakeholders & interests**: Owner — every new capture lands in the right domain folder with reusable tags, nothing the owner has not already answered is deleted at this step, nothing about a possibly personal capture leaves the PC; future skills (brick 4) — tags and domains are consistent; brick 6 — every filing decision is logged with its reasoning.
 - **Preconditions**: the source is reachable; the data folder and the index exist or are created on first run.
-- **Minimal guarantee**: no capture is lost or deleted; a capture that could not be classified stays in the inbox with status `inbox` or `doubtful`; no free text about a doubtful capture is written outside the git-ignored `data/`.
-- **Success guarantee**: every new capture has a row in the index with status `triaged`, `doubtful` or `duplicate`; triaged files sit under `data/<domain>/`; every filing is appended to the decision log.
+- **Minimal guarantee**: no capture is lost or deleted, except a returning copy of one the owner already answered personal or delete (ext. 2a applies that earlier answer, and `scan --dry-run` prints it without applying it); a capture that could not be classified stays in the inbox with status `inbox` or `doubtful`; no free text about a doubtful capture is written outside the git-ignored `data/`.
+- **Success guarantee**: every new capture has a row in the index with status `triaged`, `doubtful` or `duplicate`, or `personal` / `deleted` for a returning copy of an answered capture; triaged files sit under `data/<domain>/`; every filing is appended to the decision log.
 - **Trigger**: the owner runs `/screenshots` (or the CLI `scan` then `file` commands).
 
 **Main success scenario**
@@ -70,7 +70,7 @@ flowchart LR
 
 **Extensions**
 
-- 2a. The content hash is already in the index: system records the capture as `duplicate` with a pointer to the original, copies nothing; when the original is already `personal` or `deleted`, the row takes that status and the source receives the same action at once; resumes at 6.
+- 2a. The content hash is already in the index: system records the capture as `duplicate` with a pointer to the original, copies nothing; when the original is already `personal` or `deleted`, the row takes that status and the source receives the same action at once; the index is not the only witness: a hash whose `<id>.<ext>` sits in the source's `Personnel/` or `.trash/` (Immich: album or trash membership) is treated the same, so a lost `data/` changes nothing; with `--dry-run` the action is printed, not applied; resumes at 6.
 - 2b. The bytes are not a whitelisted image: system rejects the capture and reports it on every `scan` (intended: nothing about a non-image is recorded); resumes at 6.
 - 4a. The vision model declares a doubt (category `personal-suspected`, `unreadable` or `off-topic`): system records the row as `doubtful` with the category and keeps the model's reasoning in the index only (git-ignored); the batch continues; **extension point "Doubt"** → UC2 after the batch.
 - 4b. The vision model proposes a tag absent from the list: system accepts it if it is kebab-case English and not already present; the model names the existing tags it considered (the semantic judgement stays with the model); the new tag is listed in the report.
@@ -78,7 +78,7 @@ flowchart LR
 - 5b. Owner corrects the domain of a triaged capture later (`file` again): system moves the file to the new domain folder and logs the decision with `answer: correction`, `model: owner` and no confidence, a valuable label for brick 6.
 
 **Relationships**: extended by UC2 at "Doubt".
-**Business rules**: REQ-1 (fixed domains), REQ-2 (tags reused before created), REQ-3 (no deletion on triage), REQ-4 (decision log), REQ-5 (nothing about a personal capture leaves the tool), NFR-1 (no image or private text in Git).
+**Business rules**: REQ-1 (fixed domains), REQ-2 (tags reused before created), REQ-3 (no deletion on triage), REQ-4 (decision log), REQ-5 (nothing about a personal capture leaves the tool), REQ-6 (`scan --dry-run` for ext. 2a), NFR-1 (no image or private text in Git).
 
 ### UC2 — Decide the fate of a doubtful capture (status: planned)
 
@@ -115,6 +115,6 @@ flowchart LR
 
 ## Notes
 
-- Deletion never appears in UC1: it is a UC2 effect (owner answer, which also settles the duplicates), a `scan` meeting a copy of an already personal or deleted capture (ext. 2a), or a brick 4 effect (the purge after the sheet, or a duplicate whose original it purged). Reviewers should check that no step of UC1 removes a file.
+- UC1 never deletes on its own judgement: a file is removed by a UC2 effect (owner answer, which also settles the duplicates), by a brick 4 effect (the purge after the sheet, or a duplicate whose original it purged), or by ext. 2a, which only applies an earlier personal or delete answer to a returning copy. Reviewers should check that no other step of UC1 removes a file, and that `scan --dry-run` covers 2a (REQ-6).
 - "Receive the doubt question" is not a use case; the owner's goal is UC2.
 - Open question for brick 3: whether a personal answer also removes the asset from the Screenshots album (the album move may suffice).

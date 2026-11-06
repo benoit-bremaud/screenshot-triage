@@ -32,8 +32,8 @@ sequenceDiagram
     Source-->>CLI: bytes
     alt hash already indexed, original not final
       CLI->>Store: upsert(ref, status = duplicate, duplicateOf)
-    else hash of a personal or deleted capture
-      CLI->>Source: markPersonal(ref) or trash(ref), collision rule
+    else hash of a personal or deleted capture (index row, or ID in Personnel/ or .trash/)
+      CLI->>Source: markPersonal(ref) or trash(ref), collision rule, printed only with --dry-run
       CLI->>Store: upsert(ref, status = original's status, duplicateOf)
     else new hash
       CLI->>CLI: copy into data/inbox/ID.EXT
@@ -60,7 +60,7 @@ sequenceDiagram
 
 ## Notes
 
-- **No deletion of a work capture** on this diagram (REQ-3); a duplicate keeps its index row only, the duplicate file is not copied. The one source action here settles a copy of a capture already personal or deleted, so a phone re-sync never resurfaces it (`05-state-capture.md`, T-14).
+- **No deletion of a work capture** on this diagram (REQ-3); a duplicate keeps its index row only, the duplicate file is not copied. The one source action here settles a copy of a capture already personal or deleted, so a phone re-sync never resurfaces it, even after `data/` is lost, because the guard also reads the ids in `Personnel/` and `.trash/`; `scan --dry-run` prints that action instead of applying it (REQ-6, `05-state-capture.md`, T-7, T-14).
 - **Three identifiers** (glossary): `ref` is the index row key and the only name the source knows; `contentHash` detects duplicates and identifies a capture in the versioned decision log, so no filename reaches Git (REQ-5, NFR-1); `id`, its first 12 hex characters, is what every command takes on argv, so an attacker-controlled filename never reaches a shell command built by the session.
 - **A capture kept as work is never doubted again**: `scan` returns `doubtAnswer` and the CLI rejects `doubt` on a row whose `doubtAnswer` is `work` (T-10).
 - **Free text never travels through argv**: the decision payload is one JSON object on stdin, validated against one schema in `src/triage/` (ADR-0002). A doubt payload is stored in the git-ignored index only; the versioned decision log receives `file` decisions only (REQ-4).
