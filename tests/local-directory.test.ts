@@ -1,4 +1,5 @@
-import { mkdir, mkdtemp, rm, stat, utimes, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -17,7 +18,12 @@ describe('LocalDirectorySource', () => {
     source = new LocalDirectorySource(root);
     await writeFile(join(root, 'a.png'), 'bytes');
     const info = await stat(join(root, 'a.png'));
-    target = { localName: 'abcdef012345.png', size: info.size, takenAt: info.mtime.toISOString() };
+    target = {
+      localName: 'abcdef012345.png',
+      contentHash: createHash('sha256').update('bytes').digest('hex'),
+      size: info.size,
+      takenAt: info.mtime.toISOString(),
+    };
   });
   afterEach(() => rm(root, { recursive: true, force: true }));
 
@@ -33,17 +39,28 @@ describe('LocalDirectorySource', () => {
     await expect(source.trash('a.png', target)).resolves.toBeUndefined();
   });
 
-  it('refuses a file that changed since the scan', async () => {
-    await writeFile(join(root, 'a.png'), 'other bytes');
+  it('a missing ref with no target fails: the source is the wrong one', async () => {
+    await rm(join(root, 'a.png'));
 
-    await expect(source.markPersonal('a.png', target)).rejects.toThrow('changed since scan');
+    await expect(source.trash('a.png', target)).rejects.toThrow('check --source');
   });
 
-  it('refuses a file whose time changed since the scan', async () => {
+  it('leaves alone a reused name holding other bytes, and the call completes', async () => {
+    await writeFile(join(root, 'a.png'), 'other bytes');
+
+    await source.markPersonal('a.png', target);
+
+    expect(await readFile(join(root, 'a.png'), 'utf8')).toBe('other bytes');
+    expect((await source.finalIds()).personal).toEqual(new Set());
+  });
+
+  it('moves a touched file whose bytes are the scanned ones', async () => {
     const later = new Date('2027-01-01T00:00:00Z');
     await utimes(join(root, 'a.png'), later, later);
 
-    await expect(source.trash('a.png', target)).rejects.toThrow('changed since scan');
+    await source.trash('a.png', target);
+
+    expect((await source.finalIds()).trashed).toEqual(new Set(['abcdef012345']));
   });
 
   it('removes a duplicate whose target name already exists', async () => {

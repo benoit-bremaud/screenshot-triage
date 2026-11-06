@@ -40,6 +40,8 @@ export interface CaptureRow {
 /** What a source needs to act on a capture without hashing it again: its local name and its identity at scan time. */
 export interface SourceTarget {
   readonly localName: string;
+  /** Checked when size or time differ: a touched file with the same bytes is still the capture. */
+  readonly contentHash: string;
   readonly size: number;
   readonly takenAt: string;
 }
@@ -50,6 +52,7 @@ export const localName = (row: Pick<CaptureRow, 'contentHash' | 'ext'>): string 
 
 export const targetOf = (row: CaptureRow): SourceTarget => ({
   localName: localName(row),
+  contentHash: row.contentHash,
   size: row.size,
   takenAt: row.takenAt,
 });

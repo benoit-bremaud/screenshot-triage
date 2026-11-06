@@ -33,8 +33,9 @@ const apply = async (
     await runEffects(result.effects, { ...context, dryRun });
   } catch (error) {
     // UC1 ext. 5a: a failed move leaves the row `inbox` with an error flag; the next `scan` presents it again.
+    // Best effort: the original error is the one reported.
     if (event.type === 'file' && row?.status === 'inbox') {
-      await context.index.upsert({ ...row, error: 'move failed' });
+      await context.index.upsert({ ...row, error: 'move failed' }).catch(() => undefined);
     }
     throw error;
   }

@@ -49,7 +49,7 @@ describe('T-10 illegal transitions are rejected with the current status and exit
     expect(run.err[0]).toContain('current status: deleted');
   });
 
-  it('file on a duplicate: a duplicate receives no command', async () => {
+  it('file with a duplicate id addresses the original, never the duplicate row', async () => {
     const dupId = await ws.addCapture('b.png', png('one'));
     await ws.scan();
     expect(dupId).toBe(id);

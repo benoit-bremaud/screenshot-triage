@@ -61,7 +61,7 @@ flowchart LR
 **Main success scenario**
 
 1. Owner asks for a triage.
-2. System lists the captures of the source whose ref is not yet in the index, or whose row is `deleted` (an asset restored from the Immich trash keeps its ref), reads each one, checks its magic bytes against the image whitelist, computes its content hash and copies it into the inbox as `<id>.<ext>`.
+2. System lists the captures of the source whose ref is not yet in the index, or whose row is `deleted` (an asset restored from the Immich trash keeps its ref) or `personal` (a re-synced copy under the same name), reads each one, checks its magic bytes against the image whitelist, computes its content hash and copies it into the inbox as `<id>.<ext>`.
 3. System presents each inbox capture (image, OCR text when the source has it) with the domain list and the current tag list (from `tags`).
 4. Vision model returns a domain, tags (reused before created, with the existing tags it considered), a confidence and a two-to-three-sentence reasoning.
 5. System moves the file into the domain folder, appends the decision labels (keyed by content hash, never by ref, no reasoning) to the decision log and records the row with status `triaged`, reasoning included.
