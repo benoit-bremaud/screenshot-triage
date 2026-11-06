@@ -6,7 +6,7 @@
 
 ## Context
 
-The lifecycle of one capture as recorded in `data/index.jsonl`. The state names, lowercased, are the values of the `status` enum in `src/triage/`; the diagram is the source of truth for the legal transitions and the code must refuse the others. Deletion is an effect of exactly four events: two owner answers (applied to the capture and its duplicates), the purge after a sheet, and `scan` meeting the hash of a capture already personal or deleted, whose new copy follows that status at once.
+The lifecycle of one capture as recorded in `data/index.jsonl`. The state names, lowercased, are the values of the `status` enum in `src/triage/`; the diagram is the source of truth for the legal transitions and the code must refuse the others. Deletion is an effect of exactly four events: two owner answers (applied to the capture and its duplicates), the purge after a sheet, and `scan` meeting a copy of a capture already personal (index row or id in `Personnel/`) or still in `.trash/`, whose new copy follows that status at once.
 
 ## Diagram
 
@@ -46,7 +46,7 @@ stateDiagram-v2
 |---|---|---|---|---|
 | — | `scan` [else: no other `scan` guard holds] | Inbox | copy into `data/inbox/`, row with `contentHash` (covers an unknown hash and a restored deleted capture) | T-1 |
 | — | `scan` [hash known, original not final] | Duplicate | row with `duplicateOf`, no copy | T-2 |
-| — | `scan` [hash of a personal capture] | Personal | row with `duplicateOf`, `source.markPersonal` (collision rule) | T-14 |
+| — | `scan` [hash of a personal capture, or id in `Personnel/`] | Personal | row with `duplicateOf`, `source.markPersonal` (collision rule) | T-14 |
 | — | `scan` [id still in `.trash/`] | Deleted | row with `duplicateOf`, `source.trash` (collision rule) | T-14 |
 | Inbox | `file(decision)` | Triaged | move to `data/<domain>/<id>.<ext>`, decision appended (skipped if already there), index written, in that order | T-3 |
 | Inbox | `doubt(category, reasoning)` [doubtAnswer ≠ work] | Doubtful | index row only, nothing appended to the log | T-4 |
