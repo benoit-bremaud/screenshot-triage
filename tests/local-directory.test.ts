@@ -39,10 +39,10 @@ describe('LocalDirectorySource', () => {
     await expect(source.trash('a.png', target)).resolves.toBeUndefined();
   });
 
-  it('a missing ref with no target fails: the source is the wrong one', async () => {
+  it('a ref deleted on the phone is already gone: nothing to do', async () => {
     await rm(join(root, 'a.png'));
 
-    await expect(source.trash('a.png', target)).rejects.toThrow('check --source');
+    await expect(source.trash('a.png', target)).resolves.toBeUndefined();
   });
 
   it('leaves alone a reused name holding other bytes, and the call completes', async () => {

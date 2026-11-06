@@ -33,7 +33,7 @@ sequenceDiagram
     CLI->>Source: read(ref)
     Source-->>CLI: bytes
     alt personal (index row or ID in Personnel/), or ID still in .trash/ (checked first)
-      CLI->>Source: markPersonal(ref, target) or trash(ref, target), target = ID.EXT + size + takenAt; a changed file is refused, an existing target removes the copy (or printed with --dry-run)
+      CLI->>Source: markPersonal(ref, target) or trash(ref, target), target = ID.EXT + contentHash + size + takenAt; a changed file is hashed and moved only if its bytes match, an existing target removes the copy (or printed with --dry-run)
       CLI->>Store: upsert(ref, status = original's status, duplicateOf)
     else hash already indexed, original not final
       CLI->>Store: upsert(ref, status = duplicate, duplicateOf)

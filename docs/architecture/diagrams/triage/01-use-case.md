@@ -100,7 +100,7 @@ flowchart LR
 **Extensions**
 
 - 3a. Answer is **work** (keep as dev or design watch): system records `resolve --as work` in the index row and returns the capture to `inbox`; the vision model classifies it with doubt disallowed (`other` stays available); UC1 step 5 follows and the decision log entry carries `answer: work`.
-- 3b. Answer is **personal**: system deletes the local file without reading it further, asks the source to mark the asset personal (local directory: moved to its `Personnel/` subfolder; Immich: the `Personnel` album), records status `personal` in the index only; its duplicates follow (same status, same source action).
+- 3b. Answer is **personal**: system deletes the local file without reading it further (the source hashes the file again only when its size or time changed since the scan, to check it is the same capture; the bytes are never interpreted), asks the source to mark the asset personal (local directory: moved to its `Personnel/` subfolder; Immich: the `Personnel` album), records status `personal` in the index only; its duplicates follow (same status, same source action).
 - 3c. Answer is **delete**: system deletes the local file, asks the source to trash the asset (local directory: moved to its `.trash/` subfolder; Immich: the trash), records status `deleted` in the index only; its duplicates follow.
 - 3d. `--dry-run` is set on a personal or delete answer: system prints the effects and changes nothing.
 - *a. Owner postpones: the capture stays `doubtful` and is listed by UC3.

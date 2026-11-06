@@ -1,3 +1,4 @@
+import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve as resolvePath, sep } from 'node:path';
 import { parseArgs } from 'node:util';
 
@@ -5,6 +6,7 @@ import { EXIT_INTERNAL, EXIT_OK, EXIT_USAGE, UsageError, type CommandContext } f
 import { doubt, file, resolve } from './commands/decide.js';
 import { scan } from './commands/scan.js';
 import { status, tags } from './commands/status.js';
+import { isMissing } from './fs.js';
 import { LocalDirectorySource } from './sources/local-directory.js';
 import { CaptureIndex } from './store/capture-index.js';
 import { DecisionLog } from './store/decision-log.js';
@@ -72,7 +74,10 @@ const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => 
     io.out(USAGE);
     return command === undefined && !values.help ? EXIT_USAGE : EXIT_OK;
   }
-  if (values.source !== undefined) assertDisjoint(values.source, [values.data, values.knowledge]);
+  if (values.source !== undefined) {
+    assertDisjoint(values.source, [values.data, values.knowledge]);
+    await pinSource(values.source, values.data, values['dry-run']);
+  }
   const context: CommandContext = {
     dataDir: values.data,
     source: values.source === undefined ? undefined : new LocalDirectorySource(values.source),
@@ -98,6 +103,30 @@ const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => 
       return tags(context);
     default:
       throw new UsageError(`unknown command: ${command}`);
+  }
+};
+
+/**
+ * The first `--source` used with a data folder is recorded in `data/source.json` (its real path); any
+ * other is refused, so a source call never acts on a same-named file of another directory.
+ */
+const pinSource = async (source: string, dataDir: string, dryRun: boolean): Promise<void> => {
+  const root = await realpath(source).catch(() => {
+    throw new UsageError('--source must be an existing directory');
+  });
+  const record = join(dataDir, 'source.json');
+  let pinned: string | undefined;
+  try {
+    pinned = (JSON.parse(await readFile(record, 'utf8')) as { root?: string }).root;
+  } catch (error) {
+    if (!isMissing(error)) throw error;
+  }
+  if (pinned !== undefined && pinned !== root) {
+    throw new UsageError('--source differs from the one this data folder was scanned from');
+  }
+  if (pinned === undefined && !dryRun) {
+    await mkdir(dataDir, { recursive: true });
+    await writeFile(record, `${JSON.stringify({ root })}\n`, 'utf8');
   }
 };
 

@@ -19,7 +19,7 @@ export interface CaptureRow {
   readonly name: string;
   /** ISO 8601; the source file's modification time on a local directory. */
   readonly takenAt: string;
-  /** Byte length at scan time; with `takenAt`, lets the source refuse a file that changed since. */
+  /** Byte length at scan time; with `takenAt`, tells the source when it must hash the file again. */
   readonly size: number;
   readonly contentHash: string;
   readonly ext: ImageExt;

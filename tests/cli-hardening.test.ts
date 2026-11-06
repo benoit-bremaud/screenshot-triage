@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -79,5 +79,50 @@ describe('--source placement', () => {
     await ws.dispose();
 
     expect(run.code).toBe(2);
+  });
+});
+
+describe('source root pinned in data/source.json', () => {
+  let ws: Workspace;
+  let id: string;
+  beforeEach(async () => {
+    ws = await Workspace.create();
+    id = await ws.addCapture('a.png', png('one'));
+    await ws.scan();
+    await ws.doubt(id);
+  });
+  afterEach(() => ws.dispose());
+
+  it('a capture deleted on the phone is still resolved (A)', async () => {
+    await rm(join(ws.source, 'a.png'));
+
+    const run = await ws.resolve(id, 'delete');
+
+    expect(run.code).toBe(0);
+    expect((await ws.rowById(id))[0]?.status).toBe('deleted');
+  });
+
+  it('a duplicate is still marked when the original is gone (H)', async () => {
+    await ws.addCapture('b.png', png('one'));
+    await ws.scan();
+    await rm(join(ws.source, 'a.png'));
+
+    const run = await ws.resolve(id, 'personal');
+
+    expect(run.code).toBe(0);
+    expect(await ws.list('source', 'Personnel')).toEqual([`${id}.png`]);
+    expect(await ws.exists('source', 'b.png')).toBe(false);
+  });
+
+  it('another --source is refused before any effect (B)', async () => {
+    const other = join(ws.root, 'other');
+    await mkdir(other);
+    await writeFile(join(other, 'a.png'), 'unrelated');
+
+    const run = await ws.run(['resolve', id, '--as', 'delete', '--source', other]);
+
+    expect(run.code).toBe(2);
+    expect(await ws.exists('data', 'inbox', `${id}.png`)).toBe(true);
+    expect((await ws.rowById(id))[0]?.status).toBe('doubtful');
   });
 });

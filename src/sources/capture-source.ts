@@ -28,9 +28,9 @@ export interface CaptureSource {
   /** Bytes of one capture; throws on a ref outside the source. */
   read(ref: string): Promise<Uint8Array>;
   /**
-   * Files the capture as personal under `target.localName` without reading it again; refuses a file
-   * whose size or time differ from `target` (it is not the capture that was scanned). A duplicate
-   * whose target name already exists is removed instead, the bytes being identical.
+   * Files the capture as personal under `target.localName`. A ref already gone is a no-op. A file whose
+   * size or time differ from `target` is hashed (never interpreted) and left alone unless its bytes are
+   * the scanned ones. A duplicate whose target name already exists is removed instead.
    */
   markPersonal(ref: string, target: SourceTarget): Promise<void>;
   /** Same contract as `markPersonal`, into the trash. */

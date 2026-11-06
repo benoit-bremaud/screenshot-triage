@@ -79,10 +79,11 @@ export class LocalDirectorySource implements CaptureSource {
   }
 
   /**
-   * Moves `ref` to `<folder>/<localName>`. A missing `ref` is done only when the target exists (a re-run
-   * after a crash); otherwise the source is the wrong one and the call fails. A file whose size or time
-   * differ is hashed: same bytes, it is moved; other bytes, the scanned capture is already gone from
-   * that name and the file is left alone. When the target exists the duplicate is removed instead.
+   * Moves `ref` to `<folder>/<localName>`. A missing `ref` is already gone (deleted on the phone, or a
+   * re-run after a crash): nothing to do. The CLI pins the source root, so a wrong `--source` never
+   * gets here. A file whose size or time differ is hashed, never interpreted: same bytes, it is moved;
+   * other bytes, the scanned capture is gone from that name and the file is left alone. When the
+   * target exists the duplicate is removed instead, the bytes being identical.
    */
   private async moveInto(folder: string, ref: string, target: SourceTarget): Promise<void> {
     const from = this.resolve(ref);
@@ -91,9 +92,8 @@ export class LocalDirectorySource implements CaptureSource {
     try {
       info = await stat(from);
     } catch (error) {
-      if (!isMissing(error)) throw error;
-      if (await exists(destination)) return;
-      throw new Error(`capture ${target.localName} not found in this source; check --source`);
+      if (isMissing(error)) return;
+      throw error;
     }
     const changed = info.size !== target.size || info.mtime.toISOString() !== target.takenAt;
     if (changed && createHash('sha256').update(await readFile(from)).digest('hex') !== target.contentHash) return;
