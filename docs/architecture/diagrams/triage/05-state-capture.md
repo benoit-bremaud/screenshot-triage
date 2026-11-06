@@ -1,12 +1,12 @@
 # State machine diagram — triage — Capture
 
-> **Feature**: epic #1, brick #2 (statuses of bricks 4 and 6 included so the enum is final)
-> **Related ADRs**: ADR-0001 (decision 7 and § Lifecycle)
+> **Feature**: epic #1, brick #2 (brick 4 transitions drawn so the enum is final, implemented in brick 4)
+> **Related ADRs**: ADR-0001 (decision 7 and § Lifecycle), ADR-0002
 > **Realises**: UC1, UC2 · **See also**: `02-sequence-triage-batch.md`, `02-sequence-resolve-doubt.md`
 
 ## Context
 
-The lifecycle of one capture as recorded in `index.jsonl`. The state names are the values of the `status` enum in `src/triage/`; the diagram is the source of truth for the legal transitions and the code must refuse the others. Deletion is an effect of exactly three transitions, all reachable only from an owner answer or a written sheet (REQ-3).
+The lifecycle of one capture as recorded in `data/index.jsonl`. The state names, lowercased, are the values of the `status` enum in `src/triage/`; the diagram is the source of truth for the legal transitions and the code must refuse the others. Deletion is an effect of exactly four transitions: two owner answers, the purge after a sheet, and the purge of a duplicate whose original is final.
 
 ## Diagram
 
@@ -17,24 +17,22 @@ title: stm — Capture
 stateDiagram-v2
   direction LR
   [*] --> Inbox: scan [hash unknown] / copy to data/inbox
-  [*] --> Duplicate: scan [hash known] / index row only
-  Inbox --> Triaged: file(domain, tags) / move to data/domain
-  Inbox --> Doubtful: doubt(reasoning)
-  Doubtful --> Triaged: resolve(work) then file(domain, tags) / move to data/domain
-  Doubtful --> Personal: resolve(personal) / delete local file, source.moveToPersonalAlbum
+  [*] --> Duplicate: scan [hash known] / index row with duplicateOf
+  Inbox --> Triaged: file(decision) / move to data/domain, append decision
+  Inbox --> Doubtful: doubt(category, reasoning) / index row only
+  Doubtful --> Inbox: resolve(work) / record the answer
+  Doubtful --> Personal: resolve(personal) / delete local file, source.markPersonal, clear reasoning
   Doubtful --> Deleted: resolve(delete) / delete local file, source.trash
   Triaged --> Extracted: sheet written (brick 4) / thumbnail if design gem
   Extracted --> Deleted: purge (brick 4) / delete local file, source.trash
-  Duplicate --> Deleted: purge (brick 4) / source.trash
+  Duplicate --> Deleted: purge [original final] (brick 4) / source.trash
   Personal --> [*]
   Deleted --> [*]
   note right of Triaged
-    after(90 d) [domain = other] / remind owner (internal, stays Triaged)
-    file(domain, tags) / re-file (internal, corrects a wrong domain)
+    file(decision) / re-file to the new domain, append decision with answer = correction (internal)
   end note
   note right of Doubtful
-    entry / listed by status until answered
-    resolve(...) --dry-run / print effects, no transition
+    resolve(personal or delete) --dry-run / print effects, no transition
   end note
 ```
 
@@ -42,24 +40,25 @@ stateDiagram-v2
 
 | From | Event [guard] | To | Effect | Test |
 |---|---|---|---|---|
-| — | `scan` [hash unknown] | Inbox | copy into `data/inbox/` | T-1 |
-| — | `scan` [hash known] | Duplicate | index row only, no copy | T-2 |
-| Inbox | `file(domain, tags)` | Triaged | move to `data/<domain>/`, decision logged | T-3 |
-| Inbox | `doubt(reasoning)` | Doubtful | decision logged | T-4 |
-| Doubtful | `resolve(work)` + `file` | Triaged | as T-3 | T-5 |
-| Doubtful | `resolve(personal)` | Personal | local delete, source album move | T-6 |
-| Doubtful | `resolve(delete)` | Deleted | local delete, source trash | T-6 |
-| Doubtful | `resolve(*) --dry-run` | Doubtful | effects printed, nothing changed | T-7 |
-| Triaged | `file(domain, tags)` | Triaged | re-file to another domain folder | T-8 |
-| Triaged | `after(90 d)` [other] | Triaged | reminder in `status` | T-9 |
-| any other (state, event) pair | — | unchanged | rejected with an explicit error | T-10 |
+| — | `scan` [hash unknown] | Inbox | copy into `data/inbox/`, row with `contentHash` | T-1 |
+| — | `scan` [hash known] | Duplicate | row with `duplicateOf`, no copy | T-2 |
+| Inbox | `file(decision)` | Triaged | move to `data/<domain>/`, decision appended | T-3 |
+| Inbox | `doubt(category, reasoning)` | Doubtful | index row only, nothing appended to the log | T-4 |
+| Doubtful | `resolve(work)` | Inbox | `doubtAnswer = work` on the row; the following `file` logs `answer = work` | T-5 |
+| Doubtful | `resolve(personal)` | Personal | local delete, `source.markPersonal`, reasoning cleared | T-6 |
+| Doubtful | `resolve(delete)` | Deleted | local delete, `source.trash` | T-6 |
+| Doubtful | `resolve(personal or delete) --dry-run` | Doubtful | effects printed in order, nothing changed | T-7 |
+| Triaged | `file(decision)` | Triaged | re-file to another domain folder, decision appended with `answer = correction` | T-8 |
+| any other (state, event) pair | — | unchanged | rejected with the current status, non-zero exit | T-10 |
 | Triaged | sheet written | Extracted | brick 4 | brick 4 |
-| Extracted, Duplicate | purge | Deleted | brick 4 | brick 4 |
+| Extracted | purge | Deleted | brick 4 | brick 4 |
+| Duplicate | purge [original final] | Deleted | brick 4 | brick 4 |
+
+T-9 (90-day reminder) and T-11 to T-13 belong to UC3 and the tag rules, not to this machine; see the matrix.
 
 ## Notes
 
-- **Rejected events**: `resolve` on a non-doubtful capture, `file` on a deleted or personal capture, `doubt` on a triaged capture. The CLI exits non-zero with the current status; T-10 covers one of each.
+- **Rejected events** (T-10 covers one of each): `resolve` on a non-doubtful capture, `file` on a deleted, personal, doubtful or duplicate capture, `doubt` on a triaged capture.
 - **Personal and Deleted are final** and never re-enter: a personal capture is never read again (REQ-5); a wrongly deleted asset is restored by the owner in the source trash, outside this tool.
-- **Duplicate** is reached only from the initial pseudostate: the duplicate file is never copied, so there is nothing local to delete; its source asset is trashed at the brick 4 purge.
+- **Duplicate** is reached only from the initial pseudostate: the duplicate file is never copied, so there is nothing local to delete; its source asset is trashed at the brick 4 purge only once its original is `personal`, `deleted` or itself purged (the guard keeps the CLAUDE.md invariant). A duplicate of a personal capture is still trashed, never marked personal: nothing of it was read.
 - The `Inbox → Inbox` case after a failed move (UC1 ext. 5a) is not a transition: the row keeps `inbox` with an `error` field and the next `scan` presents it again.
-- Brick 6 reads the decision log only; it adds no state.

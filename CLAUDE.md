@@ -1,22 +1,23 @@
 # screenshot-triage — project instructions
 
-Pipeline that turns phone screenshots of Instagram dev and design posts into Claude Code skill knowledge. Decisions live in the ADRs under `docs/architecture/decisions/`; read [ADR-0001](docs/architecture/decisions/0001-pipeline-decisions.md) before changing anything.
+Pipeline that turns phone screenshots of Instagram dev and design posts into Claude Code skill knowledge. Decisions live in the ADRs under `docs/architecture/decisions/`; read [ADR-0001](docs/architecture/decisions/0001-pipeline-decisions.md) and [ADR-0002](docs/architecture/decisions/0002-classify-in-the-claude-code-session.md) before changing anything. The conception under `docs/architecture/` is the contract the code must satisfy.
 
 ## Invariants
 
-- **Deletion only on a final status.** A capture is deleted locally and trashed in Immich only after its extraction sheet exists, or after the owner answered personal / delete. Never after triage alone. Every destructive command supports `--dry-run`.
-- **Doubt stops the pipeline.** The triage model never invents a domain. A capture that does not look like dev or design veille is marked doubtful and the owner is asked: personal / work / delete. Personal captures are never read, never summarised, and are moved to the Immich album `Personnel`, which the tool never reads again.
-- **No third-party images in Git.** `data/` (inbox, domain folders, thumbnails) is git-ignored. Sheets hold derived text and the author's handle only.
-- **Tags are reused before created.** The triage prompt receives the current tag list. Tags are kebab-case English.
+- **Deletion only on a final status.** A capture is deleted locally and trashed in Immich only after its extraction sheet exists, after the owner answered personal / delete, or, for a duplicate, once its original is final. Never after triage alone. Every destructive command supports `--dry-run`.
+- **Doubt holds the capture.** The triage model never invents a domain. A capture that does not look like dev or design watch is marked doubtful with a category, the batch continues, and the owner is asked after the batch: work / personal / delete. Personal captures are never read, never summarised, and are moved to the Immich album `Personnel`, which the tool never reads again.
+- **Nothing private in Git.** `data/` (inbox, domain folders, thumbnails, `index.jsonl`) is git-ignored. `knowledge/decisions.jsonl` is versioned and public: it holds `file` decisions only, keyed by content hash, never a ref, a filename or any text about a doubtful or personal capture. Sheets hold derived text and the author's handle only.
+- **Free text never travels through argv.** Model-written reasoning reaches the CLI as a JSON object on stdin, validated by one schema, stored and never interpreted.
+- **Tags are reused before created.** The triage prompt receives the current tag list from `tags`. Tags are kebab-case English.
 - **Immich API key** is scoped (asset read, download, update, delete; album read and update), named and dated per the credential rule, and never has the trash-empty permission. It lives in `.env`, never in the repository.
-- **Dependency rule**: `src/triage/`, `src/index/` and `src/extract/` never import the Immich SDK; only `src/sources/` does.
+- **Dependency rule**: `src/triage/`, `src/store/`, `src/effects.ts` and `src/extract/` never import the Immich SDK; only `src/sources/` does (lint rule `no-restricted-imports`).
 
 ## Conventions
 
-- TypeScript strict, named exports, no `any`. Tests with vitest, Immich mocked at the boundary.
+- TypeScript strict, named exports, no `any`. Tests with vitest, Immich mocked at the boundary; the local-directory source over a temporary directory is the test double of choice.
 - Branch, commit, PR and issue names follow the global rules (`<type>/<N>-<slug>`, Conventional Commits, `Closes #N`).
 - `PROJECT_LOG.md` updated after every merge.
 
 ## Status
 
-Brick 0 done: repository and decisions. Next: brick 2 (triage CLI, local-directory source) here; brick 1 (Immich) in `bb-homelab`.
+Brick 0 done: repository and decisions. Brick 2 (triage CLI, local-directory source): conception under `docs/architecture/diagrams/triage/`, code next. Brick 1 (Immich) runs in `bb-homelab`. Brick 6 (#6, local model in shadow mode) waits for the decision log.

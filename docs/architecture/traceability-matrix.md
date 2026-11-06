@@ -1,13 +1,13 @@
 # Traceability matrix
 
-One row per use case and per non-functional requirement not realised by a use case. Pairs are explicit; a dropped ID keeps its row with status `dropped`.
+One row per use case and per non-functional requirement not realised by a use case. Every link cell holds explicit pairs; a dropped ID keeps its row with status `dropped`. Classes: none yet (two records, `Capture` and `Decision`, described in `05-state-capture.md` and ADR-0002). Data flow: `06-data-flow.md` for every row.
 
-| ID | Goal | Requirements | Realisation | Components | Tests | Status |
-|---|---|---|---|---|---|---|
-| UC1 | Triage new captures | REQ-1, REQ-2, REQ-3, REQ-4 | UC1 → SEQ-triage-batch | `src/cli.ts`, `src/sources/local-directory.ts`, `src/triage/`, `src/index/`, skill `/screenshots` | T-1, T-2, T-3, T-4, T-8 | planned (#2) |
-| UC2 | Decide the fate of a doubtful capture | REQ-3, REQ-4, REQ-5, REQ-6 | UC2 → SEQ-resolve-doubt | `src/cli.ts`, `src/sources/`, `src/index/` | T-5, T-6, T-7 | planned (#2) |
-| UC3 | Review the triage status | REQ-7 | UC3 → text brief in `01-use-case.md` | `src/cli.ts`, `src/index/` | T-9 | planned (#2) |
-| — | Capture lifecycle | REQ-8 | `05-state-capture.md` | `src/triage/` | T-10 | planned (#2) |
-| NFR-1 | No third-party image in Git | — | `.gitignore` (`data/`) | — | gitleaks and review | done |
-| NFR-2 | Dependency rule | — | `03-component.md` | `src/sources/` only | lint rule or review | planned (#2) |
-| NFR-3 | Transition coverage | — | `05-state-capture.md` § Transitions | tests | T-1 to T-10 | planned (#2) |
+| ID | Goal | Source | Requirements → realisation | Components | States | Tests | Status |
+|---|---|---|---|---|---|---|---|
+| UC1 | Triage new captures | #2 | REQ-1 → SEQ-triage-batch · REQ-2 → SEQ-triage-batch · REQ-3 → SEQ-triage-batch · REQ-4 → SEQ-triage-batch · REQ-5 → `06-data-flow.md` | `src/cli.ts`, `src/sources/local-directory.ts`, `src/triage/`, `src/effects.ts`, `src/store/`, skill `/screenshots` | inbox, duplicate, triaged, doubtful | REQ-1 → T-11 · REQ-2 → T-12 · REQ-3 → T-3 · REQ-4 → T-3, T-8 · scan → T-1, T-2 · doubt → T-4 | planned (#2) |
+| UC2 | Decide the fate of a doubtful capture | #2 | REQ-3 → SEQ-resolve-doubt · REQ-4 → SEQ-resolve-doubt · REQ-5 → SEQ-resolve-doubt · REQ-6 → SEQ-resolve-doubt | `src/cli.ts`, `src/triage/`, `src/effects.ts`, `src/sources/`, `src/store/` | doubtful, inbox, personal, deleted | REQ-4 → T-5 · REQ-5 → T-6 · REQ-6 → T-7 | planned (#2) |
+| UC3 | Review the triage status | #2 | REQ-7 → brief in `01-use-case.md` | `src/cli.ts`, `src/store/` | all | REQ-7 → T-9 (90 days), T-13 (tag counts, candidates, doubtful list) | planned (#2) |
+| — | Capture lifecycle | `05-state-capture.md` | REQ-8 → `05-state-capture.md` | `src/triage/` | all | REQ-8 → T-10 | planned (#2) |
+| NFR-1 | No third-party image or private text in Git | ADR-0002 | NFR-1 → `06-data-flow.md` | `.gitignore` (`data/`), `src/store/` (log fields) | — | NFR-1 → T-3 (log line has no ref), `.gitignore` check in review | planned (#2) |
+| NFR-2 | Dependency rule | CLAUDE.md | NFR-2 → `03-component.md` | `src/sources/` only | — | NFR-2 → lint rule `no-restricted-imports` | planned (#2) |
+| NFR-3 | Transition coverage | global rule | NFR-3 → `05-state-capture.md` § Transitions | tests | all | NFR-3 → T-1 to T-13 | planned (#2) |
