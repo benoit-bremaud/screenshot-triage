@@ -63,6 +63,14 @@ describe('LocalDirectorySource', () => {
     expect((await source.finalIds()).trashed).toEqual(new Set(['abcdef012345']));
   });
 
+  it('keeps the source copy when the final record holds other bytes', async () => {
+    await mkdir(join(root, '.trash'));
+    await writeFile(join(root, '.trash', target.localName), 'corrupted');
+
+    await expect(source.trash('a.png', target)).rejects.toThrow('holds other bytes');
+    expect(await readFile(join(root, 'a.png'), 'utf8')).toBe('bytes');
+  });
+
   it('removes a duplicate whose target name already exists', async () => {
     await mkdir(join(root, 'Personnel'));
     await writeFile(join(root, 'Personnel', target.localName), 'bytes');

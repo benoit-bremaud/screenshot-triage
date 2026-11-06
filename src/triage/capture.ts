@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import type { Domain } from './domains.js';
 import type { ImageExt } from './image.js';
 import type { Answer, DoubtCategory, Status } from './status.js';
@@ -6,6 +8,9 @@ import type { Answer, DoubtCategory, Status } from './status.js';
 export const CAPTURE_ID = /^[0-9a-f]{12}$/;
 
 export const isCaptureId = (value: string): boolean => CAPTURE_ID.test(value);
+
+/** SHA-256 of a capture's bytes, hex: the content hash of the glossary. */
+export const contentHashOf = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
 
 export const idOf = (contentHash: string): string => contentHash.slice(0, 12);
 

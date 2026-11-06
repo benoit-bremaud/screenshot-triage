@@ -1,9 +1,8 @@
-import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, rm, stat } from 'node:fs/promises';
 import { isAbsolute, join, relative, sep } from 'node:path';
 
 import { exists, isMissing } from '../fs.js';
-import { isCaptureId, type SourceTarget } from '../triage/capture.js';
+import { contentHashOf, isCaptureId, type SourceTarget } from '../triage/capture.js';
 import type { CaptureSource, FinalIds, SourceCapture } from './capture-source.js';
 
 export const PERSONAL_FOLDER = 'Personnel';
@@ -96,9 +95,13 @@ export class LocalDirectorySource implements CaptureSource {
       throw error;
     }
     const changed = info.size !== target.size || info.mtime.toISOString() !== target.takenAt;
-    if (changed && createHash('sha256').update(await readFile(from)).digest('hex') !== target.contentHash) return;
+    if (changed && contentHashOf(await readFile(from)) !== target.contentHash) return;
     await mkdir(join(this.root, folder), { recursive: true });
     if (await exists(destination)) {
+      // Remove the copy only when the final record really holds the capture's bytes.
+      if (contentHashOf(await readFile(destination)) !== target.contentHash) {
+        throw new Error(`${folder}/${target.localName} holds other bytes; settle it by hand`);
+      }
       await rm(from);
       return;
     }

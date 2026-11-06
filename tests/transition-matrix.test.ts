@@ -94,6 +94,11 @@ describe('decision schema keeps free text out of the public log (CLAUDE.md)', ()
     expect(FileDecisionSchema.safeParse({ ...valid, tags: Array.from({ length: 33 }, (_, i) => `t${String(i)}`) }).success).toBe(false);
   });
 
+  it('refuses a repeated tag', () => {
+    expect(FileDecisionSchema.safeParse({ ...valid, tags: ['react', 'react'] }).success).toBe(false);
+    expect(FileDecisionSchema.safeParse({ ...valid, consideredTags: ['hooks', 'hooks'] }).success).toBe(false);
+  });
+
   it('accepts a regular decision', () => {
     expect(FileDecisionSchema.safeParse(valid).success).toBe(true);
   });

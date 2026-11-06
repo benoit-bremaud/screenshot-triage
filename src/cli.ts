@@ -95,17 +95,18 @@ const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => 
   if (await overlaps(values.data, values.knowledge)) {
     throw new UsageError('--data and --knowledge must not contain each other');
   }
-  if (values.source !== undefined) {
-    await assertDisjoint(values.source, [values.data, values.knowledge]);
-    // Only the commands that act on the source pin it: a mistyped --source elsewhere locks nothing.
-    if (command === 'scan' || (command === 'resolve' && values.as !== 'work')) {
-      await pinSource(values.source, values.data, values['dry-run']);
-    }
-  }
+  if (values.source !== undefined) await assertDisjoint(values.source, [values.data, values.knowledge]);
+  const index = await CaptureIndex.load(join(values.data, 'index.jsonl'));
+  // Only a command that will act on the source pins it: `scan`, and `resolve personal|delete` on a
+  // doubtful capture. A mistyped --source on any other command, or a rejected resolve, locks nothing.
+  const actsOnSource =
+    command === 'scan' ||
+    (command === 'resolve' && values.as !== 'work' && index.byId(id ?? '')?.status === 'doubtful');
+  if (values.source !== undefined && actsOnSource) await pinSource(values.source, values.data, values['dry-run']);
   const context: CommandContext = {
     dataDir: values.data,
     source: values.source === undefined ? undefined : new LocalDirectorySource(values.source),
-    index: await CaptureIndex.load(join(values.data, 'index.jsonl')),
+    index,
     log: new DecisionLog(join(values.knowledge, 'decisions.jsonl')),
     dryRun: values['dry-run'],
     now: io.now ?? (() => new Date()),

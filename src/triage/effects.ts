@@ -7,7 +7,7 @@ import type { Domain } from './domains.js';
  * with `--dry-run` it prints them (REQ-6). Local files are always addressed by `<id>.<ext>`.
  */
 export type Effect =
-  | { readonly kind: 'copy-to-inbox'; readonly ref: string; readonly localName: string }
+  | { readonly kind: 'copy-to-inbox'; readonly ref: string; readonly localName: string; readonly contentHash: string }
   | { readonly kind: 'move-to-domain'; readonly localName: string; readonly domain: Domain }
   | { readonly kind: 'delete-local'; readonly localName: string }
   | { readonly kind: 'source-mark-personal'; readonly ref: string; readonly target: SourceTarget }

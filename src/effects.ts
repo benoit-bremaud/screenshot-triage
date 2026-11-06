@@ -5,6 +5,7 @@ import { exists, isExisting } from './fs.js';
 import type { CaptureSource } from './sources/capture-source.js';
 import type { CaptureIndex } from './store/capture-index.js';
 import type { DecisionLog } from './store/decision-log.js';
+import { contentHashOf } from './triage/capture.js';
 import { DOMAINS } from './triage/domains.js';
 import { describeEffect, type Effect } from './triage/effects.js';
 
@@ -41,6 +42,8 @@ const run = async (effect: Effect, deps: EffectDeps): Promise<void> => {
   switch (effect.kind) {
     case 'copy-to-inbox': {
       const bytes = await requireSource(deps).read(effect.ref);
+      // The file may have changed since `scan` hashed it: never copy bytes the index does not describe.
+      if (contentHashOf(bytes) !== effect.contentHash) throw new Error(`capture ${effect.localName} changed during scan; scan again`);
       await mkdir(join(deps.dataDir, INBOX_FOLDER), { recursive: true });
       const path = join(deps.dataDir, INBOX_FOLDER, effect.localName);
       // `wx`: never overwrite a local copy. One left by a lost index is kept when its bytes are identical.

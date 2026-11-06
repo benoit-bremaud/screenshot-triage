@@ -101,7 +101,7 @@ const scan = (capture: CaptureRow | undefined, candidate: ScanCandidate, facts: 
     return ok('duplicate', [{ kind: 'index-write', row }]);
   }
   return ok('inbox', [
-    { kind: 'copy-to-inbox', ref: candidate.ref, localName: name },
+    { kind: 'copy-to-inbox', ref: candidate.ref, localName: name, contentHash: candidate.contentHash },
     { kind: 'index-write', row: base },
   ]);
 };

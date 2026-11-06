@@ -1,7 +1,5 @@
-import { createHash } from 'node:crypto';
-
 import { runEffects } from '../effects.js';
-import { idOf } from '../triage/capture.js';
+import { contentHashOf, idOf } from '../triage/capture.js';
 import { detectImageExt } from '../triage/image.js';
 import type { Status } from '../triage/status.js';
 import { scanRevisits, transition, type ScanCandidate } from '../triage/transition.js';
@@ -38,7 +36,7 @@ export const scan = async (context: CommandContext): Promise<number> => {
       rejected += 1;
       continue;
     }
-    const contentHash = createHash('sha256').update(bytes).digest('hex');
+    const contentHash = contentHashOf(bytes);
     const id = idOf(contentHash);
     if (context.index.latestById(id) !== undefined && context.index.byHash(contentHash).length === 0) {
       collisions += 1;

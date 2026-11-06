@@ -11,6 +11,12 @@ const token = z.string().regex(TOKEN, 'A token: lowercase letters, digits, dot, 
 
 const tag = z.string().max(40).refine(isKebabCase, 'Tags are kebab-case English');
 
+/** A capture counts once per tag (`status` new-skill threshold), so a list never repeats a tag. */
+const tagList = z
+  .array(tag)
+  .max(32)
+  .refine((tags) => new Set(tags).size === tags.length, 'Tags must be unique');
+
 const common = {
   promptVersion: token,
   model: token,
@@ -25,8 +31,8 @@ const common = {
 export const FileDecisionSchema = z.strictObject({
   ...common,
   domain: z.enum(DOMAINS),
-  tags: z.array(tag).max(32),
-  consideredTags: z.array(tag).max(32).default([]),
+  tags: tagList,
+  consideredTags: tagList.default([]),
   confidence: z.number().min(0).max(1).optional(),
 });
 

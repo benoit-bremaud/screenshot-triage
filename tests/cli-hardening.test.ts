@@ -217,3 +217,42 @@ const runIn = async (ws: Workspace, args: readonly string[]) => {
   });
   return { code, err };
 };
+
+describe('Codex review on PR #9, third pass', () => {
+  let ws: Workspace;
+  let id: string;
+  beforeEach(async () => {
+    ws = await Workspace.create();
+    id = await ws.addCapture('a.png', png('one'));
+  });
+  afterEach(() => ws.dispose());
+
+  it('a rejected resolve never pins the source', async () => {
+    await ws.run(['scan', '--source', ws.source, '--dry-run']);
+
+    const unknown = await ws.run(['resolve', 'abcdef012345', '--as', 'delete', '--source', ws.source]);
+
+    expect(unknown.code).toBe(1);
+    expect(await ws.exists('data', 'source.json')).toBe(false);
+  });
+
+  it('never copies bytes that changed after the hash', async () => {
+    const { runEffects } = await import('../src/effects.js');
+    const { CaptureIndex } = await import('../src/store/capture-index.js');
+    const { DecisionLog } = await import('../src/store/decision-log.js');
+    const { LocalDirectorySource } = await import('../src/sources/local-directory.js');
+    const deps = {
+      dataDir: ws.data,
+      source: new LocalDirectorySource(ws.source),
+      index: await CaptureIndex.load(join(ws.data, 'index.jsonl')),
+      log: new DecisionLog(join(ws.knowledge, 'decisions.jsonl')),
+      dryRun: false,
+      out: () => undefined,
+    };
+
+    const copy = runEffects([{ kind: 'copy-to-inbox', ref: 'a.png', localName: `${id}.png`, contentHash: '0'.repeat(64) }], deps);
+
+    await expect(copy).rejects.toThrow('changed during scan');
+    expect(await ws.exists('data', 'inbox', `${id}.png`)).toBe(false);
+  });
+});
