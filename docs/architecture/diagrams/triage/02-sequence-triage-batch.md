@@ -49,7 +49,7 @@ sequenceDiagram
     else domain found
       Skill->>CLI: file ID, stdin {promptVersion, model, domain, tags, consideredTags, confidence, reasoning}
       CLI->>CLI: move data/inbox/ID.EXT to data/DOMAIN/
-      CLI->>Store: append decision labels (contentHash, no ref, no reasoning) unless the last line for the hash is an identical payload
+      CLI->>Store: append decision labels (contentHash, no ref, no reasoning) unless it would be an identical log line
       CLI->>Store: upsert(status = triaged, domain, tags, reasoning)
     end
     CLI-->>Skill: ok
@@ -67,6 +67,6 @@ sequenceDiagram
 - **Free text never travels through argv**: the decision payload is one JSON object on stdin, validated against one schema in `src/triage/` (ADR-0002). A doubt payload is stored in the git-ignored index only; the versioned decision log receives `file` decisions only (REQ-4).
 - The tag list comes from `tags` once per batch and travels with every classification request so the model reuses before creating (REQ-2); a new tag comes with `consideredTags`.
 - Bound of the loops: the number of captures returned by `listCaptures()`; large backlogs (brick 5) are fed in batches of 20–30 by the source.
-- A failed move (UC1 ext. 5a) leaves the row at `inbox`; the next `scan` presents it again. Effect order inside `file`: move, log append (skipped only on an identical payload, glossary), index write; a crash leaves the row `inbox`, `scan` finds the file by `<id>.<ext>` in `data/inbox/` then in every domain folder, and re-running `file` with the same payload completes the index write without a second log line; when the second run's labels differ in any field, the log holds two lines for the hash and brick 6 reads the last one (ADR-0002).
+- A failed move (UC1 ext. 5a) leaves the row at `inbox`; the next `scan` presents it again. Effect order inside `file`: move, log append (skipped only on an identical log line, glossary), index write; a crash leaves the row `inbox`, `scan` finds the file by `<id>.<ext>` in `data/inbox/` then in every domain folder, and re-running `file` with the same payload completes the index write without a second log line; when the second run's labels differ in any field, the log holds two lines for the hash and brick 6 reads the last one (ADR-0002).
 - Local copies are named `<id>.<ext>`, the extension taken from the magic bytes against a whitelist, so the `path` returned to the session never carries any part of the source filename (REQ-9).
 - The OCR text is optional: absent on a local directory (brick 2), present with Immich (brick 3).
