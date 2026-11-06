@@ -1,12 +1,12 @@
 # Local review — screenshot-triage (brick 2, #2)
 
-Pre-push review of the triage CLI on a local-directory source, nine adversarial rounds, the last two on the Codex fixes.
+Pre-push review of the triage CLI on a local-directory source, eleven adversarial rounds, the last five on the Codex fixes.
 
 - Date: 2026-11-06
-- Commit: 87ac1b5
+- Commit: f4c005b
 - Scope: branch diff `main...HEAD` (`feat/2-triage-cli-local-source`, 56 files)
-- Checks run: adversarial (Opus, 9 rounds) · design · docs · tests · security · correctness
-- Verdict: ship as-is · Must 0 · Should 0 · Nice 4
+- Checks run: adversarial (Opus, 11 rounds) · design · docs · tests · security · correctness
+- Verdict: ship as-is · Must 0 · Should 0 · Nice 5
 
 ## Adversarial review (#236)
 
@@ -19,15 +19,17 @@ Pre-push review of the triage CLI on a local-directory source, nine adversarial 
 - Round 7 on `f008a93`: both Codex P2 findings on #9 fixed (extra positionals refused per command, canonical paths for the `--source` isolation) · Nice 2 · **Push gate: open**.
 - Round 8 on `321831c`: second Codex review fixed (`--data` and `--knowledge` kept apart, usage checks before the pin, source must be a directory) · Should 1 · **Push gate: open**.
 - Round 9 on `87ac1b5`: Should fixed (id checked before the pin; only `scan` and `resolve --as personal|delete` pin) · **Push gate: open**.
-- Hosted reviewers: Copilot not available on this repository · Codex `@codex review` posted on `84372be`, two P2 findings, both fixed in `11f7a4c` and `f008a93`; second review on `167adb4`, one P1 and two P2, fixed in `321831c` and `87ac1b5`.
+- Round 10 on `3aaa240`: third Codex review fixed (inbox copy checked against the scanned hash, unique tags, pin only on a doubtful capture) · new Must 1: the duplicate check hashed the final record, reading `Personnel/` · Push gate: closed.
+- Round 11 on `f4c005b`: the final record is checked by size only, its bytes never read · **Push gate: open**.
+- Hosted reviewers: Copilot not available on this repository · Codex `@codex review` posted on `84372be`, two P2 findings, both fixed in `11f7a4c` and `f008a93`; second review on `167adb4`, one P1 and two P2, fixed in `321831c` and `87ac1b5`; third review on `dc23c57`, one P1 and three P2, fixed in `3aaa240` and `f4c005b`.
 
-## Pre-merge gate (head SHA 87ac1b5, `--push` mode)
+## Pre-merge gate (head SHA f4c005b, `--push` mode)
 
 | Step | Result |
 |---|---|
 | 0 CI mirror | typecheck → `npm run typecheck` ✅ · lint → `npm run lint` ✅ · test → `npm test` ✅ · gitleaks → `gitleaks git` 8.30.1 (CI pins `GITLEAKS_VERSION: 8.30.1`) ✅ |
-| 1 Tests | ✅ 106 unit and integration tests (vitest), one spawn of the entry point |
-| 2 Coverage | tests 96.05 % stmts / 89.66 % branches / 97 % funcs / 97.71 % lines (floor 80) · docs ⏸ deferred to the pre-merge run |
+| 1 Tests | ✅ 110 unit and integration tests (vitest), one spawn of the entry point |
+| 2 Coverage | tests 96.13 % stmts / 90.23 % branches / 97.05 % funcs / 97.74 % lines (floor 80) · docs ⏸ deferred to the pre-merge run |
 | 3 SonarQube | ⚠️ not run: no SonarQube project for this repository |
 | 4 Secrets | ✅ gitleaks clean (`--all`) · only `.env.example` tracked · diff read: nothing sensitive |
 | 5 E2E/smoke | ⏸ deferred to the pre-merge run (a CLI: the in-process tests drive every command) |
@@ -47,6 +49,7 @@ _None._ CodeQL, dependency review and a weekly gitleaks run are deferred by the 
 - `src/cli.ts:48` `[security]` · stderr carries absolute paths from `node:fs` errors · print the error code and the capture id instead.
 - `src/cli.ts:128` `[correctness]` · deleting `data/source.json` by hand lets the next `--source` pin silently · warn on stderr when the index already has rows.
 - `src/cli.ts:139` `[correctness]` · a dangling symbolic link as `--data` ends with exit 3 instead of a usage error; nothing is written · resolve the link target.
+- `src/effects.ts:45` `[correctness]` · a capture whose bytes change during `scan` stops the batch with exit 3; scanning again settles it · skip and report it like a rejected file.
 - `docs/architecture/diagrams/triage/01-use-case.md` 3c `[docs]` · the hash-on-change rule also applies to `trash` · one word in 3c.
 
 ## ⚪ Disagree / Intentional
