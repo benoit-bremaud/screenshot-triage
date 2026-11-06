@@ -33,9 +33,9 @@ sequenceDiagram
     alt hash already indexed, original not final
       CLI->>Store: upsert(ref, status = duplicate, duplicateOf)
     else personal (index row or ID in Personnel/) or ID still in .trash/
-      CLI->>Source: markPersonal(ref) or trash(ref), collision rule, printed only with --dry-run
+      CLI->>Source: markPersonal(ref) or trash(ref), collision rule, applied (or printed with --dry-run)
       CLI->>Store: upsert(ref, status = original's status, duplicateOf)
-    else new hash
+    else new hash, or a restored deleted capture
       CLI->>CLI: copy into data/inbox/ID.EXT
       CLI->>Store: upsert(ref, status = inbox, contentHash)
     end

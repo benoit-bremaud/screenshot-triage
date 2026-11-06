@@ -16,7 +16,7 @@ title: stm — Capture
 ---
 stateDiagram-v2
   direction LR
-  [*] --> Inbox: scan [hash unknown] / copy to data/inbox
+  [*] --> Inbox: scan [hash unknown, or original deleted and id not in .trash/] / copy to data/inbox
   [*] --> Duplicate: scan [hash known, original not final] / index row with duplicateOf
   [*] --> Personal: scan [hash of a personal capture, or id in Personnel/] / index row with duplicateOf, source.markPersonal
   [*] --> Deleted: scan [id still in .trash/] / index row with duplicateOf, source.trash
@@ -44,7 +44,7 @@ stateDiagram-v2
 
 | From | Event [guard] | To | Effect | Test |
 |---|---|---|---|---|
-| — | `scan` [hash unknown] | Inbox | copy into `data/inbox/`, row with `contentHash` | T-1 |
+| — | `scan` [hash unknown, or original deleted and id not in `.trash/`] | Inbox | copy into `data/inbox/`, row with `contentHash` | T-1 |
 | — | `scan` [hash known, original not final] | Duplicate | row with `duplicateOf`, no copy | T-2 |
 | — | `scan` [hash of a personal capture] | Personal | row with `duplicateOf`, `source.markPersonal` (collision rule) | T-14 |
 | — | `scan` [id still in `.trash/`] | Deleted | row with `duplicateOf`, `source.trash` (collision rule) | T-14 |
