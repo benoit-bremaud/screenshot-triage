@@ -31,7 +31,7 @@ src/cli.ts      TypeScript CLI: scan | file | doubt | resolve | status | tags (b
   store/        CaptureIndex (data/index.jsonl) and DecisionLog (knowledge/decisions.jsonl)
   extract/      sheets and targeted verification (brick 4)
 knowledge/      decisions.jsonl and, from brick 4, one Markdown sheet per capture (versioned, derived text only)
-data/           inbox, domain folders, thumbnails, index.jsonl (git-ignored)
+data/           inbox, domain folders, thumbnails, index.jsonl, source.json (pinned source root) (git-ignored)
 docs/           architecture: ADRs, UML diagrams, requirements, QA
 tests/          vitest, Immich mocked at the boundary
 ```

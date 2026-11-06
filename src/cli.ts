@@ -122,7 +122,9 @@ const pinSource = async (source: string, dataDir: string, dryRun: boolean): Prom
     if (!isMissing(error)) throw error;
   }
   if (pinned !== undefined && pinned !== root) {
-    throw new UsageError('--source differs from the one this data folder was scanned from');
+    throw new UsageError(
+      `--source differs from the pinned source ${pinned}; if the folder moved, edit ${record} by hand (never point it at another folder)`,
+    );
   }
   if (pinned === undefined && !dryRun) {
     await mkdir(dataDir, { recursive: true });
