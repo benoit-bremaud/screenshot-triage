@@ -37,16 +37,17 @@ sequenceDiagram
       CLI->>Store: upsert(ref, status = inbox, contentHash)
     end
   end
-  CLI-->>Skill: inbox captures (ref, path, ocrText?)
+  CLI-->>Skill: inbox captures (id, path, ocrText?, doubtAnswer?)
   loop for each inbox capture
     Skill->>Skill: classify(image, ocrText, domains, tags)
-    alt doubt
-      Skill->>CLI: doubt REF, stdin {promptVersion, model, category, reasoning}
+    alt doubt and doubtAnswer is not work
+      Skill->>CLI: doubt ID, stdin {promptVersion, model, category, reasoning}
       CLI->>Store: upsert(status = doubtful, category, reasoning) in the index only
     else domain found
-      Skill->>CLI: file REF, stdin {promptVersion, model, domain, tags, consideredTags, confidence, reasoning}
+      Skill->>CLI: file ID, stdin {promptVersion, model, domain, tags, consideredTags, confidence, reasoning}
       CLI->>CLI: move data/inbox/FILE to data/DOMAIN/
-      CLI->>Store: upsert(status = triaged, domain, tags) and append decision (contentHash, no ref)
+      CLI->>Store: upsert(status = triaged, domain, tags)
+      CLI->>Store: append decision (contentHash, no ref) unless the last line for the hash matches
     end
     CLI-->>Skill: ok
   end
@@ -57,9 +58,10 @@ sequenceDiagram
 ## Notes
 
 - **No deletion anywhere** on this diagram (REQ-3); a duplicate keeps its index row only, the duplicate file is not copied.
-- **Two keys** (glossary): `ref` identifies a capture in the index and in every command; `contentHash` detects duplicates and identifies a capture in the versioned decision log, so no filename reaches Git (REQ-5, NFR-1).
+- **Three identifiers** (glossary): `ref` is the index row key and the only name the source knows; `contentHash` detects duplicates and identifies a capture in the versioned decision log, so no filename reaches Git (REQ-5, NFR-1); `id`, its first 12 hex characters, is what every command takes on argv, so an attacker-controlled filename never reaches a shell command built by the session.
+- **A capture kept as work is never doubted again**: `scan` returns `doubtAnswer` and the CLI rejects `doubt` on a row whose `doubtAnswer` is `work` (T-10).
 - **Free text never travels through argv**: the decision payload is one JSON object on stdin, validated against one schema in `src/triage/` (ADR-0002). A doubt payload is stored in the git-ignored index only; the versioned decision log receives `file` decisions only (REQ-4).
 - The tag list comes from `tags` once per batch and travels with every classification request so the model reuses before creating (REQ-2); a new tag comes with `consideredTags`.
 - Bound of the loops: the number of captures returned by `listCaptures()`; large backlogs (brick 5) are fed in batches of 20–30 by the source.
-- A failed move (UC1 ext. 5a) leaves the row at `inbox`; the next `scan` presents it again. Move and copy are idempotent so a crash between an effect and the index write is repaired by the next `scan`.
+- A failed move (UC1 ext. 5a) leaves the row at `inbox`; the next `scan` presents it again. Effect order inside `file`: move, index write, log append; `scan` resolves the path of an `inbox` row in `data/inbox/` then `data/<domain>/`, and the log append is refused when the last line for that hash already matches, so a crash between two effects is repaired by running `file` again (ADR-0002).
 - The OCR text is optional: absent on a local directory (brick 2), present with Immich (brick 3).

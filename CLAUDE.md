@@ -4,10 +4,11 @@ Pipeline that turns phone screenshots of Instagram dev and design posts into Cla
 
 ## Invariants
 
-- **Deletion only on a final status.** A capture is deleted locally and trashed in Immich only after its extraction sheet exists, after the owner answered personal / delete, or, for a duplicate, once its original is final. Never after triage alone. Every destructive command supports `--dry-run`.
+- **Deletion only on a final status.** A capture is deleted locally and trashed in Immich only after its extraction sheet exists, after the owner answered personal / delete, or, for a duplicate, once its original has a final status (`personal` or `deleted`). Never after triage alone. Every destructive command supports `--dry-run`.
 - **Doubt holds the capture.** The triage model never invents a domain. A capture that does not look like dev or design watch is marked doubtful with a category, the batch continues, and the owner is asked after the batch: work / personal / delete. Personal captures are never read, never summarised, and are moved to the Immich album `Personnel`, which the tool never reads again.
 - **Nothing private in Git.** `data/` (inbox, domain folders, thumbnails, `index.jsonl`) is git-ignored. `knowledge/decisions.jsonl` is versioned and public: it holds `file` decisions only, keyed by content hash, never a ref, a filename or any text about a doubtful or personal capture. Sheets hold derived text and the author's handle only.
-- **Free text never travels through argv.** Model-written reasoning reaches the CLI as a JSON object on stdin, validated by one schema, stored and never interpreted.
+- **Neither free text nor filenames travel through argv.** Model-written reasoning reaches the CLI as a JSON object on stdin, validated by one schema, stored and never interpreted. Commands address a capture by its id (12 hex characters of the content hash), never by its ref or filename.
+- **The source is the durable record of final statuses.** `markPersonal` and `trash` are real on every source (local `Personnel/` and `.trash/` subfolders skipped by `listCaptures`, Immich album and trash), so losing `data/` never resurfaces a personal capture.
 - **Tags are reused before created.** The triage prompt receives the current tag list from `tags`. Tags are kebab-case English.
 - **Immich API key** is scoped (asset read, download, update, delete; album read and update), named and dated per the credential rule, and never has the trash-empty permission. It lives in `.env`, never in the repository.
 - **Dependency rule**: `src/triage/`, `src/store/`, `src/effects.ts` and `src/extract/` never import the Immich SDK; only `src/sources/` does (lint rule `no-restricted-imports`).

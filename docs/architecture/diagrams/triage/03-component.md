@@ -32,6 +32,7 @@ flowchart LR
     CLI -->|"selects the adapter from --source"| Local
     CLI -->|"brick 3"| Immich
     Effects --> Port
+    Effects --> Store
     Store --> Triage
     Local ==>|"«realize»"| Port
     Immich ==>|"«realize»"| Port
@@ -39,14 +40,15 @@ flowchart LR
   Skill -.->|"runtime: child process, JSON on stdin and stdout"| CLI
   Local -.->|"runtime: file system"| Dir[("Local directory")]
   Immich -.->|"runtime: HTTPS Immich API (@immich/sdk)"| Srv["Immich server (external)"]
-  Effects -.->|"runtime: file system"| Data[("data/ and knowledge/")]
+  Effects -.->|"runtime: file system (copy, move, delete)"| Data[("data/inbox and data/DOMAIN")]
+  Store -.->|"runtime: file system"| Files[("data/index.jsonl, knowledge/decisions.jsonl")]
 ```
 
 ## Notes
 
 - **Single egress per external**: the Immich server is reached only by `src/sources/immich.ts`; the local directory only by `src/sources/local-directory.ts`. A `@immich/sdk` import anywhere else is a defect (CLAUDE.md dependency rule), enforced by one `no-restricted-imports` lint rule (NFR-2).
-- **The port is justified** by two implementations (local directory now, Immich in brick 3) and by the tests, which drive the CLI with the local source over a temporary directory. Contract: `listCaptures()` → `{ ref, name, takenAt, ocrText? }[]`, `read(ref)` → bytes, `markPersonal(ref)`, `trash(ref)`; the last two are no-ops on the local source. `ref` is relative to the directory on the local source and the asset id on Immich.
-- **Functional core, imperative shell**: `src/triage/` computes the next status and an ordered list of effects (copy, move, delete, source call, index write, log append) for an event; `src/effects.ts` runs them in order or, with `--dry-run`, prints them. The effect order of REQ-6 and `02-sequence-resolve-doubt.md` is therefore written once; T-6 and T-7 test the pure function.
+- **The port is justified** by two implementations (local directory now, Immich in brick 3) and by the tests, which drive the CLI with the local source over a temporary directory. Contract: `listCaptures()` → `{ ref, name, takenAt, ocrText? }[]`, `read(ref)` → bytes, `markPersonal(ref)`, `trash(ref)`. On the local source `markPersonal` and `trash` move the file into `Personnel/` and `.trash/` subfolders that `listCaptures` skips; on Immich they are the `Personnel` album and the trash. The source is the durable record of final statuses (ADR-0002, T-14). `ref` is relative to the directory on the local source and the asset id on Immich; commands take the `id` (12 hex characters of the content hash), never the ref.
+- **Functional core, imperative shell**: `src/triage/` computes the next status and an ordered list of effects (copy, move, delete, source call, index write, log append) for an event; `src/effects.ts` runs them in order, file-system effects itself and store effects through `src/store/`, or, with `--dry-run`, prints them. The effect order of REQ-6, `02-sequence-resolve-doubt.md` and the `file` order of ADR-0002 is therefore written once; T-6 and T-7 test the pure function.
 - **The skill owns the prompt**, the CLI owns the facts: the CLI never calls a model (ADR-0002). The skill reads the domain list and the current tags from `tags`, the only command that serves them.
 - `src/triage/` imports nothing from `src/sources/`, `src/store/` or `src/effects.ts`; `src/store/` imports the status enum and the decision schema from `src/triage/`.
 - `knowledge/` is versioned (decision log, later the sheets); `data/` is git-ignored (index, inbox, domain folders, thumbnails; NFR-1).

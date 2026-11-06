@@ -1,7 +1,7 @@
 # ADR-0002 — Classify captures in the Claude Code session and log every filing decision
 
 Status: accepted · Date: 2026-11-06 · Deciders: Benoît Bremaud, with Claude Code (MCDA matrices, scores /500).
-Settles who calls the vision model left open by ADR-0001 decision 5, fixes where the index and the decision log live, and amends ADR-0001 § Bricks: bricks 2 to 6 are built in this repository (decision 12), only the `/screenshots` skill lives in `~/.claude`.
+Settles who calls the vision model left open by ADR-0001 decision 5, fixes where the index and the decision log live, and amends ADR-0001 on three points: § Bricks, bricks 2 to 6 are built in this repository (decision 12) and only the `/screenshots` skill lives in `~/.claude`; decision 8, the sheets live in `knowledge/` of this repository; decision 7, a doubtful capture is held and the owner is asked after the batch, the batch is not stopped.
 
 ## Context
 
@@ -33,17 +33,21 @@ Drivers: privacy 35, usefulness for brick 6 25, simplicity 20, history and backu
 | Privacy (35) | 3 — source filenames still public | 5 — only derived text of work captures leaves | 5 — nothing leaves |
 | Brick 6 (25) | 5 — full log | 5 — same log | 3 — no shared history |
 | Simplicity (20) | 3 — two regimes in one file | 4 — one file per regime | 5 — one folder |
-| History (20) | 5 | 4 — the index is rebuilt by `scan` | 1 — no backup |
-| **Total /500** | **390** | **460** | **370** |
+| History (20) | 5 | 3 — statuses and answers are lost with `data/`; personal and deleted captures stay out because the source records them (below) | 1 — no backup |
+| **Total /500** | **390** | **440** | **370** |
 
-Sensitivity: B stays first unless privacy drops below 15, which the public-repository rule excludes.
+Sensitivity: A overtakes B only if history weighs about 45 with privacy at 10, which the public-repository rule excludes; C never overtakes B while brick 6 matters.
 
-**Outcome: B.** `data/index.jsonl` (git-ignored) holds every capture row: ref, filename, content hash, status, doubt category and reasoning, owner answers. `knowledge/decisions.jsonl` (versioned) receives one line per `file` decision only: content hash, timestamp, prompt version, model, domain, tags, considered tags, confidence, reasoning, and `answer` (`work` after a doubt, `correction` after a re-file, absent otherwise). A doubt writes nothing to the versioned log; a personal answer clears the reasoning from the index row.
+**Outcome: B.** `data/index.jsonl` (git-ignored) holds every capture row: ref, filename, content hash, status, doubt category and reasoning, owner answers. `knowledge/decisions.jsonl` (versioned) receives one line per `file` decision only: content hash, timestamp, prompt version, model (`owner` for a correction), domain, tags, considered tags, confidence, reasoning, and `answer` (`work` after a doubt, `correction` after a re-file, absent otherwise). A doubt writes nothing to the versioned log; a personal answer clears the reasoning from the index row.
+
+**The source, not the index, is the durable record of personal and deleted captures.** Losing `data/` must never resurface a personal capture, so `markPersonal` and `trash` are real on every source: on the local directory they move the file into `Personnel/` and `.trash/` subfolders that `listCaptures` skips, mirroring the Immich album and trash. A fresh `scan` after losing the index therefore lists work captures only (test T-14).
 
 ## Consequences
 
 - The CLI interface (`scan`, `file`, `doubt`, `resolve`, `status`, `tags`) is the contract between skill and code; adding an API classifier later is a new caller of the same commands, not a change to them.
 - Free text never travels through argv: `file` and `doubt` read one JSON decision object on stdin, validated against one schema in `src/triage/`. Model-written reasoning is untrusted input (it may echo a prompt injection in a screenshot) and is stored, never interpreted.
+- Filenames never travel through argv either: commands address a capture by its `id`, the first 12 hex characters of the content hash (`[0-9a-f]{12}`), never by its ref, which on the local source is an attacker-controlled filename. Duplicates receive no command, so the id is unique among addressable rows.
+- Effect order inside `file`: move the file, write the index row, then append the log line; `file` refuses when the last log line for that hash already carries the same domain and answer, so a crash between the two writes never produces two labels. `scan` resolves the path of an `inbox` row by looking in `data/inbox/` then `data/<domain>/`.
 - Triage requires an open Claude Code session; no cron in brick 2.
 - The prompt lives in the skill (`~/.claude`), the facts (domains, tags, statuses, schema) in the CLI; the skill reads them from `tags` to avoid drift.
 - The decision log is public: the owner answers `delete`, never `work`, on confidential work content; reasoning follows the sheet rule "author's handle only".

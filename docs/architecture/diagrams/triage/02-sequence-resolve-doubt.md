@@ -7,7 +7,7 @@
 
 ## Context
 
-The three answers of UC2. This is the only scenario of brick 2 that deletes a file. The source calls for the personal mark and the trash are no-ops on the local-directory source and become Immich API calls in brick 3; the contract is fixed here.
+The three answers of UC2. This is the only scenario of brick 2 that deletes a file. The source calls for the personal mark and the trash are real on every source: subfolders `Personnel/` and `.trash/` skipped by `listCaptures` on the local directory, the `Personnel` album and the trash on Immich (brick 3). The source, not the index, is the durable record of personal and deleted captures (ADR-0002).
 
 ## Diagram
 
@@ -20,28 +20,28 @@ sequenceDiagram
   participant Source as Capture source
   participant Store as Store
   Skill->>CLI: status --json
-  CLI-->>Skill: doubtful captures (ref, path, category, reasoning)
+  CLI-->>Skill: doubtful captures (id, path, category, reasoning)
   loop for each doubtful capture
     Skill->>Owner: capture, doubt category and reasoning, answers work / personal / delete
     Owner-->>Skill: answer
     alt work
-      Skill->>CLI: resolve REF --as work
+      Skill->>CLI: resolve ID --as work
       CLI->>Store: upsert(status = inbox, doubtAnswer = work)
       Skill->>Skill: classify(image, ocrText, domains, tags, doubt disallowed)
-      Skill->>CLI: file REF, stdin {decision payload}
+      Skill->>CLI: file ID, stdin {decision payload}
       CLI->>CLI: move to data/DOMAIN/
       CLI->>Store: upsert(status = triaged) and append decision with answer = work
     else personal
-      Skill->>CLI: resolve REF --as personal
+      Skill->>CLI: resolve ID --as personal
       CLI->>CLI: delete data/inbox/FILE
       CLI->>Source: markPersonal(ref)
-      Source-->>CLI: done (no-op on a local directory)
+      Source-->>CLI: done (local directory: moved to Personnel/)
       CLI->>Store: upsert(status = personal, reasoning cleared)
     else delete
-      Skill->>CLI: resolve REF --as delete
+      Skill->>CLI: resolve ID --as delete
       CLI->>CLI: delete data/inbox/FILE
       CLI->>Source: trash(ref)
-      Source-->>CLI: done (no-op on a local directory)
+      Source-->>CLI: done (local directory: moved to .trash/)
       CLI->>Store: upsert(status = deleted)
     end
     CLI-->>Skill: ok
@@ -53,6 +53,7 @@ sequenceDiagram
 
 - **Dry run**: `resolve --as personal|delete --dry-run` prints the effects in order (local delete, source call, index change) and returns before any of them (REQ-6); `--as work` has no destructive effect and ignores the flag. Test T-7.
 - **Personal captures are never read** (REQ-5): the personal branch carries no image or OCR text to the model; the doubt reasoning is cleared from the index row and never reached the versioned log; the only data that leaves the capture is its ref, sent to the source.
-- **Order of effects**: the local file is deleted before the source call so a source failure (brick 3, network) cannot leave a readable personal file on the PC. Delete is idempotent, so a crash before the index write is repaired by running `resolve` again. Retrying a failed source call is designed in brick 3; no source call can fail on the local directory.
+- **Order of effects**: the local file is deleted before the source call so a source failure (brick 3, network) cannot leave a readable personal file on the PC. Delete is idempotent, so a crash before the index write is repaired by running `resolve` again. Retrying a failed source call is designed in brick 3; on the local directory the source call is a move inside the same file system.
+- **Losing `data/` is safe**: a fresh `scan` lists neither `Personnel/` nor `.trash/`, so personal captures never come back (T-14).
 - The `work` branch records the owner's answer first (`Doubtful → Inbox`), then re-enters the UC1 flow with doubt disallowed; the decision log entry carries `answer: work`, the label brick 6 values most.
 - Doubtful files stay in `data/inbox/`; `status` and `resolve` select by index status, never by folder.

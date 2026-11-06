@@ -74,7 +74,7 @@ flowchart LR
 - 4a. The vision model declares a doubt (category `personal-suspected`, `unreadable` or `off-topic`): system records the row as `doubtful` with the category and keeps the model's reasoning in the index only (git-ignored); the batch continues; **extension point "Doubt"** → UC2 after the batch.
 - 4b. The vision model proposes a tag absent from the list: system accepts it if it is kebab-case English and not already present; the model names the existing tags it considered (the semantic judgement stays with the model); the new tag is listed in the report.
 - 5a. The file move fails: the row stays `inbox` with the error; the batch continues and the next `scan` presents the capture again.
-- 5b. Owner corrects the domain of a triaged capture later (`file` again): system moves the file to the new domain folder and logs the decision with `answer: correction`, a valuable label for brick 6.
+- 5b. Owner corrects the domain of a triaged capture later (`file` again): system moves the file to the new domain folder and logs the decision with `answer: correction`, `model: owner` and no confidence, a valuable label for brick 6.
 
 **Relationships**: extended by UC2 at "Doubt".
 **Business rules**: REQ-1 (fixed domains), REQ-2 (tags reused before created), REQ-3 (no deletion on triage), REQ-4 (decision log), REQ-5 (nothing about a personal capture leaves the tool), NFR-1 (no image or private text in Git).
@@ -99,13 +99,13 @@ flowchart LR
 **Extensions**
 
 - 3a. Answer is **work** (keep as dev or design watch): system records `resolve --as work` in the index row and returns the capture to `inbox`; the vision model classifies it with doubt disallowed (`other` stays available); UC1 step 5 follows and the decision log entry carries `answer: work`.
-- 3b. Answer is **personal**: system deletes the local file without reading it further, asks the source to mark the asset personal (brick 3: moved to the `Personnel` album; no-op on a local directory), records status `personal` in the index only.
-- 3c. Answer is **delete**: system deletes the local file, asks the source to trash the asset (no-op on a local directory), records status `deleted` in the index only.
+- 3b. Answer is **personal**: system deletes the local file without reading it further, asks the source to mark the asset personal (local directory: moved to its `Personnel/` subfolder; Immich: the `Personnel` album), records status `personal` in the index only.
+- 3c. Answer is **delete**: system deletes the local file, asks the source to trash the asset (local directory: moved to its `.trash/` subfolder; Immich: the trash), records status `deleted` in the index only.
 - 3d. `--dry-run` is set on a personal or delete answer: system prints the effects and changes nothing.
 - *a. Owner postpones: the capture stays `doubtful` and is listed by UC3.
 
 **Relationships**: extends UC1 at "Doubt".
-**Business rules**: REQ-3, REQ-4, REQ-5, REQ-6 (`--dry-run` on every destructive command).
+**Business rules**: REQ-3, REQ-4, REQ-5 (durable at the source, so a lost index never resurfaces a personal capture), REQ-6 (`--dry-run` on every destructive command), REQ-9 (commands take an id, never a filename).
 
 ### UC3 — Review the triage status (status: planned)
 
