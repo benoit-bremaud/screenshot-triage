@@ -1,4 +1,4 @@
-import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve as resolvePath, sep } from 'node:path';
 import { parseArgs } from 'node:util';
 
@@ -7,6 +7,7 @@ import { doubt, file, resolve } from './commands/decide.js';
 import { scan } from './commands/scan.js';
 import { status, tags } from './commands/status.js';
 import { isMissing } from './fs.js';
+import { isAnswer } from './triage/status.js';
 import { LocalDirectorySource } from './sources/local-directory.js';
 import { CaptureIndex } from './store/capture-index.js';
 import { DecisionLog } from './store/decision-log.js';
@@ -57,6 +58,7 @@ const isParseArgsError = (error: unknown): error is Error =>
 
 /** Commands that take a capture id; the others take no positional argument. */
 const ID_COMMANDS: ReadonlySet<string> = new Set(['file', 'doubt', 'resolve']);
+const COMMANDS: ReadonlySet<string> = new Set([...ID_COMMANDS, 'scan', 'status', 'tags']);
 
 const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => {
   const { values, positionals } = parseArgs({
@@ -73,11 +75,20 @@ const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => 
     },
   });
   const [command, id, ...extra] = positionals;
-  const unexpected = ID_COMMANDS.has(command ?? '') ? extra : [id, ...extra].filter((arg) => arg !== undefined);
-  if (unexpected.length > 0) throw new UsageError(`unexpected argument: ${unexpected.join(' ')}`);
   if (values.help || command === undefined) {
     io.out(USAGE);
     return command === undefined && !values.help ? EXIT_USAGE : EXIT_OK;
+  }
+  // Every usage check runs before the first persistent side effect, the source pin.
+  if (!COMMANDS.has(command)) throw new UsageError(`unknown command: ${command}`);
+  const unexpected = ID_COMMANDS.has(command) ? extra : [id, ...extra].filter((arg) => arg !== undefined);
+  if (unexpected.length > 0) throw new UsageError(`unexpected argument: ${unexpected.join(' ')}`);
+  if (command === 'resolve' && (values.as === undefined || !isAnswer(values.as))) {
+    throw new UsageError('--as must be work, personal or delete');
+  }
+  // `data/` is private and `knowledge/` is published: neither may hold the other.
+  if (await overlaps(values.data, values.knowledge)) {
+    throw new UsageError('--data and --knowledge must not contain each other');
   }
   if (values.source !== undefined) {
     await assertDisjoint(values.source, [values.data, values.knowledge]);
@@ -116,9 +127,8 @@ const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => 
  * other is refused, so a source call never acts on a same-named file of another directory.
  */
 const pinSource = async (source: string, dataDir: string, dryRun: boolean): Promise<void> => {
-  const root = await realpath(source).catch(() => {
-    throw new UsageError('--source must be an existing directory');
-  });
+  const root = await realpath(source).catch(() => '');
+  if (root === '' || !(await stat(root)).isDirectory()) throw new UsageError('--source must be an existing directory');
   const record = join(dataDir, 'source.json');
   let pinned: string | undefined;
   try {
@@ -155,12 +165,16 @@ const within = (outer: string, inner: string): boolean => {
   return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 };
 
+/** True when either folder is the other or sits inside it, symbolic links followed. */
+const overlaps = async (a: string, b: string): Promise<boolean> => {
+  const [first, second] = [await canonical(a), await canonical(b)];
+  return within(first, second) || within(second, first);
+};
+
 /** The source must not contain, or sit inside, the data or knowledge folders: a scan would eat its own copies. */
 const assertDisjoint = async (source: string, folders: readonly string[]): Promise<void> => {
-  const root = await canonical(source);
   for (const folder of folders) {
-    const path = await canonical(folder);
-    if (within(root, path) || within(path, root)) {
+    if (await overlaps(source, folder)) {
       throw new UsageError('--source must not contain or sit inside --data or --knowledge');
     }
   }

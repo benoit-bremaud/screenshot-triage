@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { ScanReport } from '../src/commands/scan.js';
+import { runCli } from '../src/cli.js';
 import { png, Workspace } from './helpers.js';
 
 describe('CLI hardening', () => {
@@ -160,3 +161,49 @@ describe('Codex review on PR #9', () => {
     expect(run.err[0]).toContain('--source must not contain');
   });
 });
+
+describe('Codex review on PR #9, second pass', () => {
+  let ws: Workspace;
+  beforeEach(async () => {
+    ws = await Workspace.create();
+  });
+  afterEach(() => ws.dispose());
+
+  it('refuses a data folder inside the knowledge folder', async () => {
+    const run = await runIn(ws, ['status', '--data', join(ws.knowledge, 'private')]);
+
+    expect(run.code).toBe(2);
+    expect(run.err[0]).toContain('--data and --knowledge');
+  });
+
+  it.each([
+    ['frobnicate', '--source'],
+    ['resolve', 'abcdef012345', '--as', 'maybe', '--source'],
+  ])('an invalid %s invocation never pins the source', async (...args) => {
+    const run = await ws.run([...args, ws.source]);
+
+    expect(run.code).toBe(2);
+    expect(await ws.exists('data', 'source.json')).toBe(false);
+  });
+
+  it('refuses a regular file as --source and pins nothing', async () => {
+    const file = join(ws.root, 'not-a-dir.png');
+    await writeFile(file, 'x');
+
+    const run = await ws.run(['scan', '--source', file]);
+
+    expect(run.code).toBe(2);
+    expect(await ws.exists('data', 'source.json')).toBe(false);
+  });
+});
+
+/** Runs the CLI with an explicit --data, bypassing the workspace default. */
+const runIn = async (ws: Workspace, args: readonly string[]) => {
+  const err: string[] = [];
+  const code = await runCli([...args, '--knowledge', ws.knowledge], {
+    readStdin: () => Promise.resolve(''),
+    out: () => undefined,
+    err: (line) => err.push(line),
+  });
+  return { code, err };
+};
