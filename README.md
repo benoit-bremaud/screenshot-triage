@@ -11,7 +11,7 @@ Turns the Instagram screenshots taken on a phone into knowledge that enriches or
 5. **Enrich**: one pull request per batch into the target skill's `references/field-notes.md`; a tag reaching five captures with no covering skill becomes a new-skill candidate.
 6. **Purge**: once the sheet exists, the local file is deleted and the Immich asset trashed. Only design gems keep an 800 px thumbnail, outside Git.
 
-Decisions and their scores: [ADR-0001](docs/architecture/adr/0001-pipeline-decisions.md).
+Decisions and their scores: [ADR-0001](docs/architecture/decisions/0001-pipeline-decisions.md).
 
 ## Domains
 

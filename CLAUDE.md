@@ -1,6 +1,6 @@
 # screenshot-triage — project instructions
 
-Pipeline that turns phone screenshots of Instagram dev and design posts into Claude Code skill knowledge. Decisions live in the ADRs under `docs/architecture/adr/`; read [ADR-0001](docs/architecture/adr/0001-pipeline-decisions.md) before changing anything.
+Pipeline that turns phone screenshots of Instagram dev and design posts into Claude Code skill knowledge. Decisions live in the ADRs under `docs/architecture/decisions/`; read [ADR-0001](docs/architecture/decisions/0001-pipeline-decisions.md) before changing anything.
 
 ## Invariants
 
