@@ -55,6 +55,9 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
 const isParseArgsError = (error: unknown): error is Error =>
   error instanceof Error && 'code' in error && String(error.code).startsWith('ERR_PARSE_ARGS');
 
+/** Commands that take a capture id; the others take no positional argument. */
+const ID_COMMANDS: ReadonlySet<string> = new Set(['file', 'doubt', 'resolve']);
+
 const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => {
   const { values, positionals } = parseArgs({
     args: [...argv],
@@ -70,7 +73,8 @@ const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => 
     },
   });
   const [command, id, ...extra] = positionals;
-  if (extra.length > 0) throw new UsageError(`unexpected argument: ${extra.join(' ')}`);
+  const unexpected = ID_COMMANDS.has(command ?? '') ? extra : [id, ...extra].filter((arg) => arg !== undefined);
+  if (unexpected.length > 0) throw new UsageError(`unexpected argument: ${unexpected.join(' ')}`);
   if (values.help || command === undefined) {
     io.out(USAGE);
     return command === undefined && !values.help ? EXIT_USAGE : EXIT_OK;

@@ -143,6 +143,12 @@ describe('Codex review on PR #9', () => {
     expect(run.err[0]).toContain('unexpected argument');
   });
 
+  it.each([['status', 'extra'], ['tags', 'abcdef012345'], ['scan', 'x']])('%s refuses a positional argument', async (...args) => {
+    const run = await ws.run(args[0] === 'scan' ? [...args, '--source', ws.source] : args);
+
+    expect(run.code).toBe(2);
+  });
+
   it('a --source that reaches the data folder through a symbolic link is refused', async () => {
     await mkdir(ws.data, { recursive: true });
     const link = join(ws.root, 'link');
