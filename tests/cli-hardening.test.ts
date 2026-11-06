@@ -186,6 +186,16 @@ describe('Codex review on PR #9, second pass', () => {
     expect(await ws.exists('data', 'source.json')).toBe(false);
   });
 
+  it.each([
+    ['resolve', 'a.png', '--as', 'delete', '--source'],
+    ['status', '--source'],
+    ['file', 'abcdef012345', '--source'],
+  ])('%s never pins the source on a bad id or a command that does not use it', async (...args) => {
+    await ws.run([...args, ws.source]);
+
+    expect(await ws.exists('data', 'source.json')).toBe(false);
+  });
+
   it('refuses a regular file as --source and pins nothing', async () => {
     const file = join(ws.root, 'not-a-dir.png');
     await writeFile(file, 'x');

@@ -7,6 +7,7 @@ import { doubt, file, resolve } from './commands/decide.js';
 import { scan } from './commands/scan.js';
 import { status, tags } from './commands/status.js';
 import { isMissing } from './fs.js';
+import { isCaptureId } from './triage/capture.js';
 import { isAnswer } from './triage/status.js';
 import { LocalDirectorySource } from './sources/local-directory.js';
 import { CaptureIndex } from './store/capture-index.js';
@@ -79,10 +80,14 @@ const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => 
     io.out(USAGE);
     return command === undefined && !values.help ? EXIT_USAGE : EXIT_OK;
   }
-  // Every usage check runs before the first persistent side effect, the source pin.
+  // Every argv check runs before the first persistent side effect, the source pin; a stdin payload
+  // is read only by `file` and `doubt`, which never pin.
   if (!COMMANDS.has(command)) throw new UsageError(`unknown command: ${command}`);
   const unexpected = ID_COMMANDS.has(command) ? extra : [id, ...extra].filter((arg) => arg !== undefined);
   if (unexpected.length > 0) throw new UsageError(`unexpected argument: ${unexpected.join(' ')}`);
+  if (ID_COMMANDS.has(command) && (id === undefined || !isCaptureId(id))) {
+    throw new UsageError('expected a capture id: 12 hex characters, never a filename or a ref');
+  }
   if (command === 'resolve' && (values.as === undefined || !isAnswer(values.as))) {
     throw new UsageError('--as must be work, personal or delete');
   }
@@ -92,7 +97,10 @@ const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => 
   }
   if (values.source !== undefined) {
     await assertDisjoint(values.source, [values.data, values.knowledge]);
-    await pinSource(values.source, values.data, values['dry-run']);
+    // Only the commands that act on the source pin it: a mistyped --source elsewhere locks nothing.
+    if (command === 'scan' || (command === 'resolve' && values.as !== 'work')) {
+      await pinSource(values.source, values.data, values['dry-run']);
+    }
   }
   const context: CommandContext = {
     dataDir: values.data,
