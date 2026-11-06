@@ -70,8 +70,8 @@ flowchart LR
 
 **Extensions**
 
-- 2b. The bytes are not a whitelisted image: system rejects the capture and reports it; resumes at 6.
-- 2a. The content hash is already in the index: system records the capture as `duplicate` with a pointer to the original, copies nothing; resumes at 6.
+- 2a. The content hash is already in the index: system records the capture as `duplicate` with a pointer to the original, copies nothing; when the original is already `personal` or `deleted`, the row takes that status and the source receives the same action at once; resumes at 6.
+- 2b. The bytes are not a whitelisted image: system rejects the capture and reports it on every `scan` (intended: nothing about a non-image is recorded); resumes at 6.
 - 4a. The vision model declares a doubt (category `personal-suspected`, `unreadable` or `off-topic`): system records the row as `doubtful` with the category and keeps the model's reasoning in the index only (git-ignored); the batch continues; **extension point "Doubt"** → UC2 after the batch.
 - 4b. The vision model proposes a tag absent from the list: system accepts it if it is kebab-case English and not already present; the model names the existing tags it considered (the semantic judgement stays with the model); the new tag is listed in the report.
 - 5a. The file move fails: the row stays `inbox` with the error; the batch continues and the next `scan` presents the capture again.
@@ -115,6 +115,6 @@ flowchart LR
 
 ## Notes
 
-- Deletion never appears in UC1: it is a UC2 effect (owner answer) or a brick 4 effect (the purge after the sheet, or a duplicate whose original is final). Reviewers should check that no step of UC1 removes a file.
+- Deletion never appears in UC1: it is a UC2 effect (owner answer, which also settles the duplicates), a `scan` meeting a copy of an already personal or deleted capture (ext. 2a), or a brick 4 effect (the purge after the sheet, or a duplicate whose original it purged). Reviewers should check that no step of UC1 removes a file.
 - "Receive the doubt question" is not a use case; the owner's goal is UC2.
 - Open question for brick 3: whether a personal answer also removes the asset from the Screenshots album (the album move may suffice).
