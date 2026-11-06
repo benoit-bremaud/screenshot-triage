@@ -3,7 +3,7 @@
 - Date: 2026-11-06
 - Commit: see § Adversarial review (round 1 ran on 374ca92, last verified head below)
 - Scope: branch diff main...HEAD (docs only: triage UML study, ADR-0002, requirements, glossary, matrix, CLAUDE.md, README, PROJECT_LOG)
-- Checks run: adversarial (Opus, 13 rounds) · Codex hosted review (3 findings, applied) · design · docs · security (diff read, gitleaks) · correctness (n/a, no code)
+- Checks run: adversarial (Opus, 14 rounds) · Codex hosted review (3 findings, applied) · design · docs · security (diff read, gitleaks) · correctness (n/a, no code)
 - Verdict: ship as-is · Must 0 · Should 0 · Nice 0 open (round 1: Must 8 · Should 12 · Nice 8, all applied)
 
 ## Adversarial review (#236)
@@ -21,8 +21,9 @@
 - Round 11 on `fd4c512`: 2 fixed · 0 not fixed · 0 regressed · new Must 0 · **Push gate: open — 0 Must open** (PR #7 opened on `05caae0`)
 - Codex review on `05caae0`: P1 reasoning published by a false-negative `work` filing (owner decision, ADR-0002 decision 3, B 435) · P2 restored Immich asset never revisited · P3 dedupe on domain only → applied in `0154995`, threads answered and resolved
 - Round 12 on `0154995`: 3 fixed · new Must 3 (stale copies of the old rules) · Should 3 · Push gate: closed
+- Round 14 on `3747c12`: 4 fixed · new Must 0 · Should 1 (glossary Id wording, applied in the next commit) · **Push gate: open — 0 Must open**
 - Round 13 on `ec6e2e8`: 6 fixed · 0 not fixed · 0 regressed · new Must 0 · Should 2 · Nice 2 (all applied in the next commit) · **Push gate: open — 0 Must open**
-- Hosted reviewers: Copilot not requestable on this repository (Copilot code review not enabled; REST request returns no reviewer) · **waived by the owner on 2026-11-06 for PR #7** (docs only, 13 adversarial rounds) · Codex posted its review on `05caae0`, 3 findings applied, threads resolved
+- Hosted reviewers: Copilot not requestable on this repository (Copilot code review not enabled; REST request returns no reviewer) · **waived by the owner on 2026-11-06 for PR #7** (docs only, 14 adversarial rounds) · Codex posted its review on `05caae0`, 3 findings applied, threads resolved
 
 ## Pre-merge gate (head SHA: the commit that records this report, differing from `ec6e2e8` by the round-13 Should/Nice edits and this file)
 
@@ -32,7 +33,7 @@
 | 1 Tests | n/a — no code, no suite yet |
 | 2 Coverage | ⏸ deferred (no code) |
 | 3 SonarQube | ⚠️ no SonarQube project for this repository yet (docs only, no code) |
-| 4 Secrets | ✅ gitleaks clean (main..HEAD, 16 commits) · tracked env files: `.env.example` only (placeholders) · diff read: nothing sensitive |
+| 4 Secrets | ✅ gitleaks clean (main..HEAD, 17 commits) · tracked env files: `.env.example` only (placeholders) · diff read: nothing sensitive |
 | 5 E2E/smoke | ⏸ deferred (`--push`) |
 - Gate: `--push`: **pre-push green** — adversarial gate open, no `justfile`. Pre-merge on PR #7: no CI workflow, no code, no SonarQube project; secrets step green; Copilot waived by the owner (above); Codex findings applied and resolved.
 
@@ -58,4 +59,4 @@ _None open._
 
 ## Per-dimension summary
 
-- Adversarial: 13 rounds, 16 Must in total, every one a privacy or consistency defect in the duplicate, final-status and returning-copy rules; gate open on `ec6e2e8` · Codex: 3 findings, the P1 one a real privacy gap closed by decision 3 · Design: identity keys, argv free text, pure `transition` + effect runner, source as durable record · Docs: one rule stated once across CLAUDE.md, ADR-0002, glossary, diagrams and matrix · Security: no secret in the diff; privacy findings are design-level and closed · Correctness: n/a, no code.
+- Adversarial: 14 rounds, 16 Must in total, every one a privacy or consistency defect in the duplicate, final-status and returning-copy rules; gate open on `ec6e2e8` · Codex: 3 findings, the P1 one a real privacy gap closed by decision 3 · Design: identity keys, argv free text, pure `transition` + effect runner, source as durable record · Docs: one rule stated once across CLAUDE.md, ADR-0002, glossary, diagrams and matrix · Security: no secret in the diff; privacy findings are design-level and closed · Correctness: n/a, no code.
