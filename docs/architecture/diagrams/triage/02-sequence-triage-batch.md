@@ -30,11 +30,11 @@ sequenceDiagram
   loop for each capture whose ref is not in the index
     CLI->>Source: read(ref)
     Source-->>CLI: bytes
-    alt hash already indexed, original not final
-      CLI->>Store: upsert(ref, status = duplicate, duplicateOf)
-    else personal (index row or ID in Personnel/) or ID still in .trash/
+    alt personal (index row or ID in Personnel/), or ID still in .trash/ (checked first)
       CLI->>Source: markPersonal(ref) or trash(ref), collision rule, applied (or printed with --dry-run)
       CLI->>Store: upsert(ref, status = original's status, duplicateOf)
+    else hash already indexed, original not final
+      CLI->>Store: upsert(ref, status = duplicate, duplicateOf)
     else new hash, or a restored deleted capture
       CLI->>CLI: copy into data/inbox/ID.EXT
       CLI->>Store: upsert(ref, status = inbox, contentHash)
