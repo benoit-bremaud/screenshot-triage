@@ -1,6 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ScanReport } from '../src/commands/scan.js';
+import { LocalDirectorySource } from '../src/sources/local-directory.js';
 import { png, Workspace } from './helpers.js';
 
 describe('T-1 scan: a new capture enters the inbox', () => {
@@ -8,7 +9,10 @@ describe('T-1 scan: a new capture enters the inbox', () => {
   beforeEach(async () => {
     ws = await Workspace.create();
   });
-  afterEach(() => ws.dispose());
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    await ws.dispose();
+  });
 
   it('copies the capture as <id>.<ext> and writes an inbox row with its hash', async () => {
     const id = await ws.addCapture('IMG_001.PNG', png('one'));
@@ -44,5 +48,17 @@ describe('T-1 scan: a new capture enters the inbox', () => {
     expect(run.json<ScanReport>().seen).toEqual({ inbox: 1 });
     const rows = await ws.rowById(id);
     expect(rows.map((row) => row.status).sort()).toEqual(['deleted', 'inbox']);
+  });
+
+  it('skips a capture replaced between the listing and the read, and takes it on the next scan', async () => {
+    const id = await ws.addCapture('a.png', png('one'));
+    vi.spyOn(LocalDirectorySource.prototype, 'read').mockResolvedValueOnce(png('a longer replacement'));
+
+    const run = await ws.scan();
+
+    expect(run.json<ScanReport>()).toMatchObject({ changed: 1, seen: {}, inbox: [] });
+    expect(await ws.index()).toEqual([]);
+    expect(await ws.exists('data', 'inbox', `${id}.png`)).toBe(false);
+    expect((await ws.scan()).json<ScanReport>()).toMatchObject({ changed: 0, seen: { inbox: 1 } });
   });
 });
