@@ -1,12 +1,12 @@
 # Local review — screenshot-triage (brick 2, #2)
 
-Pre-push review of the triage CLI on a local-directory source, twelve adversarial rounds, the last six on the Codex fixes.
+Pre-push review of the triage CLI on a local-directory source, thirteen adversarial rounds, the last seven on the Codex fixes.
 
 - Date: 2026-11-06
-- Commit: b196c98
+- Commit: 1ffcb93
 - Scope: branch diff `main...HEAD` (`feat/2-triage-cli-local-source`, 56 files)
-- Checks run: adversarial (Opus, 12 rounds) · design · docs · tests · security · correctness
-- Verdict: ship as-is · Must 0 · Should 0 · Nice 6
+- Checks run: adversarial (Opus, 13 rounds) · design · docs · tests · security · correctness
+- Verdict: ship as-is · Must 0 · Should 0 · Nice 5
 
 ## Adversarial review (#236)
 
@@ -22,15 +22,16 @@ Pre-push review of the triage CLI on a local-directory source, twelve adversaria
 - Round 10 on `3aaa240`: third Codex review fixed (inbox copy checked against the scanned hash, unique tags, pin only on a doubtful capture) · new Must 1: the duplicate check hashed the final record, reading `Personnel/` · Push gate: closed.
 - Round 11 on `f4c005b`: the final record is checked by size only, its bytes never read · **Push gate: open**.
 - Round 12 on `d2f9bf3`: fourth Codex review fixed (a capture replaced mid-scan is skipped and counted as `changed`; `Personnel/` and `.trash/` must be real directories) · Should 1 (test for `changed`) fixed in `b196c98` · **Push gate: open**.
-- Hosted reviewers: Copilot not available on this repository · Codex `@codex review` posted on `84372be`, two P2 findings, both fixed in `11f7a4c` and `f008a93`; second review on `167adb4`, one P1 and two P2, fixed in `321831c` and `87ac1b5`; third review on `dc23c57`, one P1 and three P2, fixed in `3aaa240` and `f4c005b`; fourth review on `4f0cb60`, two P2, fixed in `d2f9bf3`.
+- Round 13 on `1ffcb93`: fifth Codex review fixed (a final record must be a regular file, never a link, before the source copy goes) · **Push gate: open**.
+- Hosted reviewers: Copilot not available on this repository · Codex `@codex review` posted on `84372be`, two P2 findings, both fixed in `11f7a4c` and `f008a93`; second review on `167adb4`, one P1 and two P2, fixed in `321831c` and `87ac1b5`; third review on `dc23c57`, one P1 and three P2, fixed in `3aaa240` and `f4c005b`; fourth review on `4f0cb60`, two P2, fixed in `d2f9bf3`; fifth review on `e75f29b`, one P2, fixed in `1ffcb93`.
 
-## Pre-merge gate (head SHA b196c98, `--push` mode)
+## Pre-merge gate (head SHA 1ffcb93, `--push` mode)
 
 | Step | Result |
 |---|---|
 | 0 CI mirror | typecheck → `npm run typecheck` ✅ · lint → `npm run lint` ✅ · test → `npm test` ✅ · gitleaks → `gitleaks git` 8.30.1 (CI pins `GITLEAKS_VERSION: 8.30.1`) ✅ |
-| 1 Tests | ✅ 112 unit and integration tests (vitest), one spawn of the entry point |
-| 2 Coverage | tests 96.4 % stmts / 90.69 % branches / 97.08 % funcs / 98.01 % lines (floor 80) · docs ⏸ deferred to the pre-merge run |
+| 1 Tests | ✅ 113 unit and integration tests (vitest), one spawn of the entry point |
+| 2 Coverage | tests 96.24 % stmts / 90.51 % branches / 97.11 % funcs / 97.8 % lines (floor 80) · docs ⏸ deferred to the pre-merge run |
 | 3 SonarQube | ⚠️ not run: no SonarQube project for this repository |
 | 4 Secrets | ✅ gitleaks clean (`--all`) · only `.env.example` tracked · diff read: nothing sensitive |
 | 5 E2E/smoke | ⏸ deferred to the pre-merge run (a CLI: the in-process tests drive every command) |
@@ -51,7 +52,6 @@ _None._ CodeQL, dependency review and a weekly gitleaks run are deferred by the 
 - `src/cli.ts:128` `[correctness]` · deleting `data/source.json` by hand lets the next `--source` pin silently · warn on stderr when the index already has rows.
 - `src/cli.ts:139` `[correctness]` · a dangling symbolic link as `--data` ends with exit 3 instead of a usage error; nothing is written · resolve the link target.
 - `src/effects.ts:45` `[correctness]` · a capture whose bytes change during `scan` stops the batch with exit 3; scanning again settles it · skip and report it like a rejected file.
-- `src/sources/local-directory.ts:101` `[security]` · a file-level symbolic link inside a final folder is followed by the size check · refuse it with `lstat`.
 - `docs/architecture/diagrams/triage/01-use-case.md` 3c `[docs]` · the hash-on-change rule also applies to `trash` · one word in 3c.
 
 ## ⚪ Disagree / Intentional
@@ -62,4 +62,4 @@ _None._ CodeQL, dependency review and a weekly gitleaks run are deferred by the 
 
 ## Per-dimension summary
 
-- Adversarial: twelve rounds, eleven Must fixed, gate open. · Design: functional core and dependency rule held, `src/fs.ts` dedupes the file-system helpers. · Docs: conception, README and CLAUDE.md match the port contract. · Tests: table-driven transition matrix, adapter and CLI hardening suites. · Security: labels only in the public log, ids only on argv, source pinned. · Correctness: every crash and re-run path is idempotent.
+- Adversarial: thirteen rounds, eleven Must fixed, gate open. · Design: functional core and dependency rule held, `src/fs.ts` dedupes the file-system helpers. · Docs: conception, README and CLAUDE.md match the port contract. · Tests: table-driven transition matrix, adapter and CLI hardening suites. · Security: labels only in the public log, ids only on argv, source pinned. · Correctness: every crash and re-run path is idempotent.
