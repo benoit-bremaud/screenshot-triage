@@ -1,7 +1,7 @@
 # ADR-0003 — Extract in the Claude Code session, render and purge in the CLI, derive the enrichment batch from the target skills
 
 Status: accepted · Date: 2026-11-07 · Deciders: Benoît Bremaud, with Claude Code (MCDA matrices, scores /500).
-Settles how brick 4 (#4) turns a triaged capture into a sheet, when the capture is deleted, and how a batch knows which sheets the enrichment PR still has to carry; amends ADR-0001 § Sheet format (the sheet carries the id, never the Immich asset id) and decision 8 (sheets under `knowledge/<domain>/` of this repository, as ADR-0002 already moved them).
+Settles how brick 4 (#4) turns a triaged capture into a sheet, when the capture is deleted, and how a batch knows which rules the enrichment PR still has to carry; amends ADR-0001 § Sheet format (the sheet carries the id, never the Immich asset id) and decision 8 (sheets under `knowledge/<domain>/` of this repository, as ADR-0002 already moved them).
 
 ## Context
 
@@ -17,9 +17,9 @@ Drivers: consistency with ADR-0002 30, verifiable invariants 30, cost and simpli
 | Verifiable invariants (30) | 5 — one schema, the transition table, `--dry-run`, tests | 4 — testable with the API mocked | 1 — nothing checks the file, the status or the purge guard |
 | Cost and simplicity (25) | 4 — one command and a renderer | 2 — API key, billing, retries | 5 — no code |
 | Context7 access (15) | 5 — MCP tools of the session | 2 — rebuilt by hand in the CLI | 5 — same as A |
-| **Total /500** | **475** | **265** | **320** |
+| **Total /500** | **475** | **260** | **320** |
 
-Sensitivity: C reaches A only if simplicity weighs about 60 with invariants near zero, which drops the deletion guard of CLAUDE.md. **Outcome: A.** New command `extract <id>` reads a sheet payload on stdin (schema in `src/extract/`), writes `knowledge/<domain>/<id>.md` from a fixed template, writes the thumbnail when the payload marks a design gem, and moves the row from `triaged` to `extracted`.
+Sensitivity: C reaches A only if simplicity weighs about 60 with invariants near zero, which drops the deletion guard of CLAUDE.md. **Outcome: A.** New command `extract <id> [--dry-run]` reads a sheet payload on stdin (schema in `src/extract/`), writes `knowledge/<domain>/<id>.md` from a fixed template, writes or removes the thumbnail, and moves the row from `triaged` to `extracted`. The sheet's tags and domain come from the index row, not from the payload, so REQ-2 keeps one owner.
 
 ## Decision 2 — when the capture is deleted
 
@@ -33,13 +33,13 @@ Drivers: recoverability before deletion 40, simplicity 25, owner effort 20, read
 | Invariant readability (15) | 4 — deletion inside a writing command | 5 — one command deletes, one effect list to review |
 | **Total /500** | 365 | **435** |
 
-Sensitivity: A overtakes B only when owner effort weighs about 55 against recoverability 5. **Outcome: B.** `purge [--dry-run]` deletes `data/<domain>/<id>.<ext>`, calls `source.trash(ref, target)` and sets `deleted` for every `extracted` row, then for every `duplicate` row whose original it has just purged (`05-state-capture.md`). A re-run of `extract` on an `extracted` row rewrites the sheet (correction before the purge).
+Sensitivity: moving weight from recoverability to owner effort, A overtakes B at about recoverability 26 and owner effort 34, which ranks one command per batch above a lost image. **Outcome: B.** `purge [--dry-run]` handles each `extracted` row in one effect list: for each of its `duplicate` rows `source.trash` then the row `deleted`, then the local delete of `data/<domain>/<id>.<ext>`, `source.trash` and the original's row `deleted` last; a crash leaves the original `extracted`, so a re-run finds its duplicates again (same order as `resolve` in brick 2). A re-run of `extract` on an `extracted` row rewrites the sheet (correction before the purge).
 
-## Decision 3 — how a batch knows which sheets the enrichment PR still carries
+## Decision 3 — how a batch knows which rules the enrichment PR still carries
 
 Drivers: durability after losing `data/` 30, simplicity 30, no extra state or command 20, coupling to the layout of `~/.claude` 20.
 
-| Criterion (weight) | A — a `noted` command records the PR on the index rows | B — the sheet front matter gets a `notedIn` field, committed after the PR | C — derived: `notes` lists the sheets whose id is not cited in the target skill's `references/field-notes.md` |
+| Criterion (weight) | A — a `noted` command records the PR on the index rows | B — the sheet front matter gets a `notedIn` field, committed after the PR | C — derived: `notes` lists the rules whose citation is absent from the target skill's `references/field-notes.md` |
 |---|---|---|---|
 | Durability (30) | 2 — lost with `data/` | 5 — versioned | 5 — both sides versioned |
 | Simplicity (30) | 4 | 3 — a second write per sheet | 4 — one read-only command |
@@ -47,13 +47,14 @@ Drivers: durability after losing `data/` 30, simplicity 30, no extra state or co
 | Coupling to `~/.claude` (20) | 5 — none | 5 — none | 3 — reads `skills/<name>/references/field-notes.md` |
 | **Total /500** | 320 | 400 | **430** |
 
-Sensitivity: B overtakes C when the coupling weighs about 40 at the expense of "no extra state"; the field-notes path is fixed by ADR-0001 decision 8, so the coupling is to a documented contract. **Outcome: C.** `notes --skills-dir DIR` is read-only: it groups the rules of the sheets not yet cited (by their `<id>`) under each target skill, split into `adopted` (verified, consistent) and `to confirm` (contradicted, not found, in tension), and lists the new-skill candidates (tags at five captures, REQ-7). One enrichment PR is open at a time: the skill checks that no field-notes PR is pending in `~/.claude` before it proposes the next one, so `notes` read on `main` never repeats an open PR.
+Sensitivity: B overtakes C when about 8 points move from "no extra state" to coupling (coupling ≈ 28); the field-notes path is fixed by ADR-0001 decision 8, so the coupling is to a documented contract. **Outcome: C.** Each rule is cited as `<id>#<n>` (its rank in the sheet), so a rule the owner drops stays uncited while its siblings are published. `notes --skills-dir DIR` is read-only: it reads each field-notes file from the `main` branch of `DIR`'s repository (`git show main:<path>`, never the working tree), and returns per target skill the uncited rules split into `adopted` (verified, consistent) and `to-confirm` (contradicted, not-found, in-tension), already rendered as escaped Markdown items the skill appends verbatim, plus the new-skill candidates (REQ-7). One enrichment PR is open at a time, recognised by its title prefix `docs(field-notes):`; the skill checks none is open before it proposes the next.
 
 ## Consequences
 
-- **The CLI renders, the session never writes Markdown.** The sheet payload holds plain text fields with length limits (title ≤ 80, summary ≤ 3 lines, each rule ≤ 300, justification ≤ 600 characters), single-line except the summary, control characters rejected; evidence links are `https` URLs only; the renderer escapes Markdown and HTML, so a screenshot cannot inject a link, an image, a heading or a fenced block into a sheet or the field notes. The rules are stored as list items with a fixed status prefix, which `notes` parses back (round-trip test).
-- **Field notes are data for later sessions.** The enrichment PR into `~/.claude` is reviewed by the owner (Opus, ADR-0001 § Models) and the field-notes file opens with a line saying its items are observations to weigh, not instructions; a rule asking a session to do something is dropped at review.
-- **Privacy of the published sheet.** It holds the id, derived text and the author's Instagram handle only (`@[A-Za-z0-9._]{1,30}`): no ref, no filename, no Immich asset id, no OCR dump, no other person's name. A capture whose useful content cannot be stated without private text is answered `delete` by the owner, not extracted.
-- **Thumbnails** are 800 px wide JPEG files in `data/thumbnails/<id>.jpg` (git-ignored, NFR-1), written only for a `design` capture whose payload sets `gem`; they need `sharp` (ADR-0001 decision 13), the one new dependency of the brick.
+- **The CLI renders, the session never writes derived text into a Markdown file.** The sheet payload holds plain text fields with length limits (title ≤ 80, summary ≤ 3 lines, each rule ≤ 300, justification ≤ 600 characters), single-line except the summary, control characters rejected; evidence is an `https` URL rendered as an inline code span, never a live link; the renderer escapes Markdown and HTML, so a screenshot cannot inject a link, an image, a heading or a fenced block into a sheet. The field-notes items come out of the same renderer through `notes`. The rules are stored as list items with a fixed status prefix, which `notes` parses back (round-trip test).
+- **Field notes are data for later sessions.** The enrichment PR into `~/.claude` (a private repository) is drafted on Opus (ADR-0001 § Models) and approved by the owner before it is opened; the field-notes file opens with a line saying its items are observations to weigh, not instructions; a rule asking a session to do something is dropped at review. Its branch follows the shared-tree rules of `~/.claude` (`branch-scope.sh`).
+- **Sheets are published through this repository's PR flow.** After a batch, the sheets are committed on a branch and merged through the usual gate; UC6 runs only on sheets already on `main`, so every citation URL resolves.
+- **Privacy of the published sheet.** It holds the id, derived text and the author's Instagram handle only (`@[A-Za-z0-9._]{1,30}`): no ref, no filename, no Immich asset id, no OCR dump, no other person's name. A triaged capture whose useful content cannot be stated without private text is answered `personal` or `delete` by the owner with `resolve`, which brick 4 accepts on a `triaged` row (REQ-16).
+- **Thumbnails** are 800 px wide JPEG files in `data/thumbnails/<id>.jpg` (git-ignored, NFR-1), written only for a `design` capture in `png`, `jpg` or `webp` whose payload sets `gem` (the prebuilt `sharp` binaries do not decode HEVC-based HEIC; a HEIC gem is reported without thumbnail), and removed when a re-extraction drops `gem`. `sharp` (ADR-0001 decision 13) is the one new dependency of the brick.
 - **The skill** `/screenshots` gains the extraction prompt, the Context7 verification step and the PR proposal; it is written in `~/.claude` under its own issue, after this brick's CLI contract is merged.
-- `src/extract/` imports nothing from `src/sources/` (NFR-2); the purge goes through the existing `CaptureSource.trash` port.
+- `src/extract/` imports nothing from `src/sources/`, `src/store/`, `node:fs` or `sharp`, enforced by a `no-restricted-imports` block like the one of `src/triage/`; the thumbnail lives in `src/thumbnail.ts`, run as an effect; the purge goes through the existing `CaptureSource.trash` port.

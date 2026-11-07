@@ -17,12 +17,12 @@ title: cmp — Extract (component level)
 flowchart LR
   subgraph Claude ["Claude Code (owner configuration)"]
     Skill["/screenshots skill"]
-    Notes[("skills/SKILL/references/field-notes.md")]
+    Notes[("skills/SKILL/references/field-notes.md (main)")]
   end
   subgraph Repo ["screenshot-triage (Node CLI)"]
     Cmd["src/commands/extract.ts<br/>extract · purge · notes"]
-    Extract["src/extract/<br/>sheet payload schema, render(sheet) → Markdown,<br/>parse(Markdown) → rules, uncited(sheets, notes)"]
-    Thumb["src/extract/thumbnail.ts<br/>(sharp)"]
+    Extract["src/extract/<br/>sheet payload schema, render(sheet) → Markdown,<br/>parse(Markdown) → rules, uncited(rules, notes), render items"]
+    Thumb["src/thumbnail.ts<br/>(sharp)"]
     Triage["src/triage/<br/>transition: extract, purge"]
     Effects["src/effects.ts"]
     Store["src/store/"]
@@ -35,13 +35,13 @@ flowchart LR
     Effects --> Port
   end
   Skill -.->|"runtime: child process, JSON on stdin and stdout"| Cmd
-  Cmd -.->|"runtime: read only"| Notes
+  Cmd -.->|"runtime: git show main:, read only"| Notes
   Effects -.->|"runtime: write"| Sheets[("knowledge/DOMAIN/ID.md")]
   Thumb -.->|"runtime: write"| Thumbs[("data/thumbnails/ID.jpg")]
 ```
 
 ## Notes
 
-- `src/extract/` is pure (schema, renderer, parser, uncited filter) and imports neither `src/sources/` nor `sharp`; the thumbnail is an effect run by `src/effects.ts` through `thumbnail.ts`, so tests of the renderer need no image library.
-- The new transitions (`triaged → extracted`, `extracted → extracted`, `extracted → deleted`, `duplicate → deleted` after the original's purge) are rows of the existing table in `src/triage/`, as `05-state-capture.md` already draws them.
-- `notes` is the only code that reads outside the repository and `data/`; it reads one fixed path per skill and never writes there.
+- `src/extract/` is pure (schema, renderer, parser, uncited filter) and imports neither `src/sources/`, `src/store/`, `node:fs` nor `sharp`, enforced by a `no-restricted-imports` block (NFR-6); the thumbnail is an effect run by `src/effects.ts` through `src/thumbnail.ts`, so tests of the renderer need no image library.
+- The new transitions (`triaged → extracted`, `extracted → extracted`, `extracted → deleted`, `duplicate → deleted` in the original's purge, `triaged → personal` and `triaged → deleted` on `resolve`) become new events (`extract`, `purge`) and new cases of `resolve` in `src/triage/transition.ts`, with new `Effect` kinds (`write-sheet`, `write-thumbnail`, `remove-thumbnail`) in `src/triage/effects.ts`.
+- `notes` is the only brick 4 code that reads outside the repository and `data/`; it reads one fixed path per skill from `main` and never writes there.

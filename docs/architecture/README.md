@@ -10,7 +10,7 @@ One container: a Node CLI in this repository, driven by the `/screenshots` skill
 
 | ID | Title | Status |
 |---|---|---|
-| [ADR-0001](decisions/0001-pipeline-decisions.md) | Screenshot triage pipeline decisions (13 MCDA choices) | accepted, § Bricks amended by ADR-0002 |
+| [ADR-0001](decisions/0001-pipeline-decisions.md) | Screenshot triage pipeline decisions (13 MCDA choices) | accepted, § Bricks amended by ADR-0002, § Sheet format and decision 8 amended by ADR-0003 |
 | [ADR-0002](decisions/0002-classify-in-the-claude-code-session.md) | Classify captures in the Claude Code session and log every filing decision | accepted |
 | [ADR-0003](decisions/0003-extract-in-the-session-render-in-the-cli.md) | Extract in the session, render and purge in the CLI, derive the enrichment batch from the target skills | accepted |
 
@@ -26,7 +26,7 @@ Skipped for triage, and why: class diagram (two records, `Capture` and `Decision
 ## Specs, glossary, matrix
 
 - [triage-requirements](specs/triage-requirements.md) — REQ-1 to REQ-9, NFR-1 to NFR-3.
-- [extract-requirements](specs/extract-requirements.md) — REQ-10 to REQ-15, NFR-4, NFR-5.
+- [extract-requirements](specs/extract-requirements.md) — REQ-10 to REQ-17, NFR-4 to NFR-6.
 - [glossary](glossary.md) — every term used in the diagrams.
 - [traceability-matrix](traceability-matrix.md) — use cases → requirements → realisations → components → tests.
 - [review-local](review-local.md) — the latest local review report.

@@ -58,14 +58,14 @@ flowchart LR
 - **Primary actor**: Owner
 - **Stakeholders & interests**: Owner — each triaged capture becomes a short, checked sheet; nothing private is published; skills — only verified or clearly flagged rules reach them.
 - **Preconditions**: at least one capture is `triaged`.
-- **Minimal guarantee**: no file is deleted (UC4 never deletes, REQ-3); a rejected payload leaves the row `triaged` and writes nothing.
+- **Minimal guarantee**: no file is deleted by an extraction (REQ-3), only by the owner's answer of ext. 3b; a rejected payload leaves the row `triaged` and writes nothing; with `--dry-run` nothing is written.
 - **Success guarantee**: each processed capture has a sheet `knowledge/<domain>/<id>.md`, a thumbnail when it is a design gem, and the status `extracted`.
 - **Trigger**: the owner asks `/screenshots` to extract, usually right after a triage batch.
 
 **Main success scenario**
 
 1. Owner asks for the extraction of the triaged captures.
-2. System lists the `triaged` captures with their local path, domain and tags (`status`).
+2. System lists the `triaged` captures with their local path, domain and tags (`status`, REQ-17).
 3. Vision model reads one capture and drafts the title, summary, rules, justification, target skill and author handle.
 4. Vision model verifies each rule: a technical rule against Context7 or the official documentation (verified, contradicted, not-found, with the evidence URL), a design rule against the target skill (consistent, in-tension).
 5. System validates the payload, renders the sheet, writes the thumbnail if the capture is a design gem, and records `extracted`.
@@ -75,11 +75,12 @@ flowchart LR
 **Extensions**
 
 - 3a. The capture's `domain` is `other`: the skill skips it; it stays `triaged` and UC3 reminds the owner after 90 days.
-- 3b. The useful content cannot be stated without private text: the skill skips it and tells the owner, who corrects it (`file`) or answers `delete` through a later batch; nothing is written.
-- 5a. The payload is invalid (schema, rule kind and status mismatch, length, control character, non-`https` evidence): system rejects it with the reason, writes nothing; the skill may retry once.
-- 5b. The capture is already `extracted`: system rewrites the sheet and the thumbnail (correction before the purge).
+- 3b. The useful content cannot be stated without private text: the skill skips it and asks the owner, who answers `personal` or `delete` with `resolve` on the triaged capture (REQ-16) or keeps it as is; no sheet is written.
+- 5a. The capture's domain is `other`: system rejects it (REQ-10).
+- 5b. The payload is invalid (schema, rule kind and status mismatch, length, control character, non-`https` evidence): system rejects it with the reason, writes nothing; the skill may retry once.
+- 5c. The capture is already `extracted`: system rewrites the sheet and writes or removes the thumbnail (correction before the purge).
 
-**Business rules**: REQ-10 to REQ-13, NFR-1, NFR-4.
+**Business rules**: REQ-6, REQ-10 to REQ-13, REQ-16, REQ-17, NFR-1, NFR-4.
 
 ### UC5 — Purge the extracted captures (status: planned)
 
@@ -87,19 +88,19 @@ flowchart LR
 - **Primary actor**: Owner
 - **Preconditions**: at least one capture is `extracted`.
 - **Minimal guarantee**: nothing is deleted without the owner's confirmation; with `--dry-run` nothing changes and the effects are printed.
-- **Success guarantee**: each extracted capture and each duplicate of it is `deleted`, its local file removed and its source asset trashed (restorable from the source trash).
+- **Success guarantee**: each extracted capture and each of its duplicates is `deleted`, its local file removed and its source asset trashed (restorable from the source trash).
 - **Trigger**: the owner confirms the batch after reading the sheets.
 
 **Main success scenario**
 
 1. System prints the purge plan (`purge --dry-run`).
 2. Owner confirms.
-3. System deletes each extracted file, trashes its source asset, records `deleted`, then does the same for the duplicates of the purged captures.
+3. For each extracted capture, system trashes its duplicates' source assets and records them `deleted`, then deletes the local file, trashes the source asset and records the capture `deleted`.
 
 **Extensions**
 
 - 2a. Owner refuses or postpones: nothing changes; a sheet can be corrected with UC4 ext. 5b.
-- 3a. A source call fails: the row stays `extracted` with the error, the purge continues, a re-run completes it (a ref already gone is a no-op).
+- 3a. A source call fails: the original's row stays `extracted` with the error, the purge continues, a re-run completes it, duplicates included (a ref already gone and a missing local file are no-ops).
 
 **Business rules**: REQ-3, REQ-6, REQ-14.
 
@@ -107,25 +108,25 @@ flowchart LR
 
 - **Level**: user goal
 - **Primary actor**: Owner
-- **Preconditions**: sheets exist whose id is not cited in their target skill's field notes; no field-notes PR is pending in `~/.claude`.
-- **Success guarantee**: one PR in `~/.claude` appends the new rules to each target skill's `references/field-notes.md`, split into adopted and to confirm, each citing its sheet by URL, and lists the new-skill candidates.
+- **Preconditions**: sheets on `main` of this repository hold rules whose citation `<id>#<n>` is absent from their target skill's field notes; no `docs(field-notes):` PR is open in `~/.claude`.
+- **Success guarantee**: one PR in `~/.claude` appends the new rules to each target skill's `references/field-notes.md`, split into adopted and to confirm, each citing `<id>#<n>` with its sheet URL, and lists the new-skill candidates.
 - **Trigger**: the owner asks `/screenshots` to enrich the skills, usually after a purge.
 
 **Main success scenario**
 
 1. System returns the uncited rules per target skill and the new-skill candidates (`notes`).
-2. Skill drafts the field-notes changes and shows them to the owner.
+2. Skill (on Opus) assembles the field-notes changes from the rendered items, verbatim, and shows them to the owner.
 3. Owner approves.
 4. Skill commits them on a branch of `~/.claude` and opens the PR (procedures of `~/.claude`).
 
 **Extensions**
 
 - 1a. Nothing is uncited: system reports it; end.
-- 3a. Owner drops a rule: it is left out of the PR and stays uncited, so `notes` proposes it again until the owner removes or corrects the sheet.
+- 3a. Owner drops a rule: it is left out of the PR and stays uncited (citations are per rule), so `notes` proposes it again until the owner corrects the sheet before the purge or accepts it.
 
 **Business rules**: REQ-15, NFR-4.
 
 ## Notes
 
-- Only UC5 deletes; UC4 and UC6 never do (CLAUDE.md invariant).
+- Extraction and UC6 never delete; UC5 deletes after a sheet, and UC4 ext. 3b only applies an owner answer (CLAUDE.md invariant).
 - "Receive a contradicted rule" is not a use case; the owner sees it in the UC4 report and in the `to confirm` section of UC6.

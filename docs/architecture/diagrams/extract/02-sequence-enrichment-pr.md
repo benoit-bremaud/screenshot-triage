@@ -7,7 +7,7 @@
 
 ## Context
 
-UC6: the skill turns the uncited rules into one PR of `~/.claude`. The CLI only reads; every write in `~/.claude` is done by the session after the owner's approval, under the PR procedures of that repository.
+UC6: the skill turns the uncited rules into one PR of `~/.claude` (a private repository). The CLI only reads and renders; the session writes the rendered items verbatim, after the owner's approval, under the PR and shared-tree procedures of that repository (`branch-scope.sh`).
 
 ## Diagram
 
@@ -19,20 +19,21 @@ sequenceDiagram
   participant CLI as CLI
   participant Claude as ~/.claude (git, GitHub)
   Owner->>Skill: enrich the skills
-  Skill->>Claude: any open field-notes PR?
+  Skill->>Claude: any open PR titled docs(field-notes):?
   alt a field-notes PR is open
     Claude-->>Skill: yes
     Skill-->>Owner: merge or close it first, end
   else none
     Skill->>CLI: notes --skills-dir ~/.claude/skills
-    CLI->>CLI: read knowledge/*/*.md, read each target field-notes.md, keep the uncited ids
-    CLI-->>Skill: per skill: adopted, to confirm (sheet id, rule, status, evidence); candidates
+    CLI->>Claude: git show main:skills/SKILL/references/field-notes.md
+    CLI->>CLI: read knowledge/*/*.md, keep the rules whose ID#N is not cited, render them escaped
+    CLI-->>Skill: per skill: adopted and to-confirm items (rendered Markdown), candidates
     alt nothing uncited
       Skill-->>Owner: nothing to propose, end
     else rules to propose
       Skill-->>Owner: draft of each field-notes.md change and the candidates
       Owner->>Skill: approve (rules may be dropped)
-      Skill->>Claude: branch, append to skills/SKILL/references/field-notes.md, commit, PR
+      Skill->>Claude: branch, append the items verbatim to skills/SKILL/references/field-notes.md, commit, PR docs(field-notes): …
       Claude-->>Skill: PR URL
       Skill-->>Owner: PR URL
     end
@@ -41,6 +42,6 @@ sequenceDiagram
 
 ## Notes
 
-- A field-notes item cites its sheet as `knowledge/<domain>/<id>.md` on the public repository, which is how `notes` detects it (ADR-0003 decision 3).
+- A field-notes item cites `<id>#<n>` with the URL of `knowledge/<domain>/<id>.md` on `main` of the public repository, which is how `notes` detects it (ADR-0003 decision 3); the sheets are merged before UC6 runs.
 - A target skill without `references/field-notes.md` is created by the PR, with the opening line of ADR-0003 (observations, not instructions).
-- The PR is reviewed on Opus (ADR-0001 § Models); the session never merges it.
+- The PR is drafted on Opus (ADR-0001 § Models) and approved by the owner; the session never merges it.
