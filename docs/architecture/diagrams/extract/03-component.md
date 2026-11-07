@@ -44,4 +44,4 @@ flowchart LR
 
 - `src/extract/` is pure (schema, renderer, parser, uncited filter) and imports neither `src/sources/`, `src/store/`, `node:fs` nor `sharp`, enforced by a `no-restricted-imports` block (NFR-6); the thumbnail is an effect run by `src/effects.ts` through `src/thumbnail.ts`, so tests of the renderer need no image library.
 - The new transitions (`triaged → extracted`, `extracted → extracted`, `extracted → deleted`, `duplicate → deleted` in the original's purge, `triaged → personal` and `triaged → deleted` on `resolve`) become new events (`extract`, `purge`) and new cases of `resolve` in `src/triage/transition.ts`, with new `Effect` kinds (`write-sheet`, `write-thumbnail`, `remove-thumbnail`) in `src/triage/effects.ts`.
-- `notes` is the only brick 4 code that reads outside the repository and `data/`; it reads one fixed path per skill from `main` and never writes there.
+- `notes` is the only brick 4 code that reads outside the repository and `data/`; it fetches `origin` and reads one fixed path per skill from `origin/main`, and never writes in the working tree.

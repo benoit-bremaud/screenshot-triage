@@ -129,4 +129,4 @@ flowchart LR
 ## Notes
 
 - Extraction and UC6 never delete; UC5 deletes after a sheet, and UC4 ext. 3b only applies an owner answer (CLAUDE.md invariant).
-- "Receive a contradicted rule" is not a use case; the owner sees it in the UC4 report and in the `to confirm` section of UC6.
+- "Receive a contradicted rule" is not a use case; the owner sees it in the UC4 report and in the `to-confirm` section of UC6.
