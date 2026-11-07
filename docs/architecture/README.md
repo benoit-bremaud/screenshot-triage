@@ -23,7 +23,7 @@ Skipped for triage, and why: class diagram (two records, `Capture` and `Decision
 
 ## Specs, glossary, matrix
 
-- [triage-requirements](specs/triage-requirements.md) — REQ-1 to REQ-8, NFR-1 to NFR-3.
+- [triage-requirements](specs/triage-requirements.md) — REQ-1 to REQ-9, NFR-1 to NFR-3.
 - [glossary](glossary.md) — every term used in the diagrams.
 - [traceability-matrix](traceability-matrix.md) — use cases → requirements → realisations → components → tests.
 - [review-local](review-local.md) — the latest local review report.

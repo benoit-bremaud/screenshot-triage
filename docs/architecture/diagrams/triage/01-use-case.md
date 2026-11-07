@@ -61,7 +61,7 @@ flowchart LR
 **Main success scenario**
 
 1. Owner asks for a triage.
-2. System lists the captures of the source whose ref is not yet in the index, or whose row is `deleted` (an asset restored from the Immich trash keeps its ref), reads each one, checks its magic bytes against the image whitelist, computes its content hash and copies it into the inbox as `<id>.<ext>`.
+2. System lists the captures of the source whose ref is not yet in the index, or whose row is `deleted` (an asset restored from the Immich trash keeps its ref) or `personal` (a re-synced copy under the same name), reads each one, checks its magic bytes against the image whitelist, computes its content hash and copies it into the inbox as `<id>.<ext>`.
 3. System presents each inbox capture (image, OCR text when the source has it) with the domain list and the current tag list (from `tags`).
 4. Vision model returns a domain, tags (reused before created, with the existing tags it considered), a confidence and a two-to-three-sentence reasoning.
 5. System moves the file into the domain folder, appends the decision labels (keyed by content hash, never by ref, no reasoning) to the decision log and records the row with status `triaged`, reasoning included.
@@ -100,7 +100,7 @@ flowchart LR
 **Extensions**
 
 - 3a. Answer is **work** (keep as dev or design watch): system records `resolve --as work` in the index row and returns the capture to `inbox`; the vision model classifies it with doubt disallowed (`other` stays available); UC1 step 5 follows and the decision log entry carries `answer: work`.
-- 3b. Answer is **personal**: system deletes the local file without reading it further, asks the source to mark the asset personal (local directory: moved to its `Personnel/` subfolder; Immich: the `Personnel` album), records status `personal` in the index only; its duplicates follow (same status, same source action).
+- 3b. Answer is **personal**: system deletes the local file without reading it further (the source hashes the file again only when its size or time changed since the scan, to check it is the same capture; the bytes are never interpreted), asks the source to mark the asset personal (local directory: moved to its `Personnel/` subfolder; Immich: the `Personnel` album), records status `personal` in the index only; its duplicates follow (same status, same source action).
 - 3c. Answer is **delete**: system deletes the local file, asks the source to trash the asset (local directory: moved to its `.trash/` subfolder; Immich: the trash), records status `deleted` in the index only; its duplicates follow.
 - 3d. `--dry-run` is set on a personal or delete answer: system prints the effects and changes nothing.
 - *a. Owner postpones: the capture stays `doubtful` and is listed by UC3.
