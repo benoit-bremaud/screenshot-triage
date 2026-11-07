@@ -12,18 +12,21 @@ One container: a Node CLI in this repository, driven by the `/screenshots` skill
 |---|---|---|
 | [ADR-0001](decisions/0001-pipeline-decisions.md) | Screenshot triage pipeline decisions (13 MCDA choices) | accepted, § Bricks amended by ADR-0002 |
 | [ADR-0002](decisions/0002-classify-in-the-claude-code-session.md) | Classify captures in the Claude Code session and log every filing decision | accepted |
+| [ADR-0003](decisions/0003-extract-in-the-session-render-in-the-cli.md) | Extract in the session, render and purge in the CLI, derive the enrichment batch from the target skills | proposed |
 
 ## Diagrams
 
 | Feature | Files |
 |---|---|
 | triage (brick #2) | [01-use-case](diagrams/triage/01-use-case.md), [02-sequence-triage-batch](diagrams/triage/02-sequence-triage-batch.md), [02-sequence-resolve-doubt](diagrams/triage/02-sequence-resolve-doubt.md), [03-component](diagrams/triage/03-component.md), [05-state-capture](diagrams/triage/05-state-capture.md), [06-data-flow](diagrams/triage/06-data-flow.md) |
+| extract (brick #4) | [01-use-case](diagrams/extract/01-use-case.md), [02-sequence-extract-batch](diagrams/extract/02-sequence-extract-batch.md), [02-sequence-enrichment-pr](diagrams/extract/02-sequence-enrichment-pr.md), [03-component](diagrams/extract/03-component.md), [06-data-flow](diagrams/extract/06-data-flow.md); states in [triage/05-state-capture](diagrams/triage/05-state-capture.md) |
 
-Skipped for triage, and why: class diagram (two records, `Capture` and `Decision`, described in the state machine and ADR-0002), activity (the sequences carry the branching), deployment (one machine, one process until brick 3).
+Skipped for triage, and why: class diagram (two records, `Capture` and `Decision`, described in the state machine and ADR-0002), activity (the sequences carry the branching), deployment (one machine, one process until brick 3). Skipped for extract: class (the sheet payload schema is the class), state (the capture machine of triage carries the new transitions), activity.
 
 ## Specs, glossary, matrix
 
 - [triage-requirements](specs/triage-requirements.md) — REQ-1 to REQ-9, NFR-1 to NFR-3.
+- [extract-requirements](specs/extract-requirements.md) — REQ-10 to REQ-15, NFR-4, NFR-5.
 - [glossary](glossary.md) — every term used in the diagrams.
 - [traceability-matrix](traceability-matrix.md) — use cases → requirements → realisations → components → tests.
 - [review-local](review-local.md) — the latest local review report.
