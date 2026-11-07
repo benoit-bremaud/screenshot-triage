@@ -13,7 +13,11 @@ export type Effect =
   | { readonly kind: 'source-mark-personal'; readonly ref: string; readonly target: SourceTarget }
   | { readonly kind: 'source-trash'; readonly ref: string; readonly target: SourceTarget }
   | { readonly kind: 'log-append'; readonly line: DecisionLine }
-  | { readonly kind: 'index-write'; readonly row: CaptureRow };
+  | { readonly kind: 'index-write'; readonly row: CaptureRow }
+  | { readonly kind: 'write-sheet'; readonly id: string; readonly domain: Domain; readonly markdown: string }
+  | { readonly kind: 'write-thumbnail'; readonly id: string; readonly localName: string }
+  | { readonly kind: 'remove-thumbnail'; readonly id: string }
+  | { readonly kind: 'remove-sheet'; readonly id: string; readonly domain: Domain };
 
 /** One line per effect for `--dry-run`: ids only, never a ref (REQ-5, REQ-9). */
 export const describeEffect = (effect: Effect): string => {
@@ -32,5 +36,13 @@ export const describeEffect = (effect: Effect): string => {
       return `append decision for ${idOf(effect.line.contentHash)} (${effect.line.domain})`;
     case 'index-write':
       return `index: ${idOf(effect.row.contentHash)} -> ${effect.row.status}`;
+    case 'write-sheet':
+      return `write sheet knowledge/${effect.domain}/${effect.id}.md`;
+    case 'write-thumbnail':
+      return `write thumbnail data/thumbnails/${effect.id}.jpg`;
+    case 'remove-sheet':
+      return `remove sheet knowledge/${effect.domain}/${effect.id}.md if present`;
+    case 'remove-thumbnail':
+      return `remove thumbnail data/thumbnails/${effect.id}.jpg if present`;
   }
 };

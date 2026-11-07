@@ -9,22 +9,27 @@ export const STATUSES = [
   'extracted',
 ] as const;
 
+/** One capture status. */
 export type Status = (typeof STATUSES)[number];
 
 /** Final statuses never re-enter the machine (glossary "Final status"). */
 export const FINAL_STATUSES: readonly Status[] = ['personal', 'deleted'];
 
+/** True for a status that never re-enters the machine. */
 export const isFinal = (status: Status): boolean => FINAL_STATUSES.includes(status);
 
 /** The owner's answer to a doubtful capture (glossary "Answer"). */
 export const ANSWERS = ['work', 'personal', 'delete'] as const;
 
+/** One owner answer. */
 export type Answer = (typeof ANSWERS)[number];
 
+/** Narrows an argv value to an owner answer. */
 export const isAnswer = (value: string): value is Answer =>
   (ANSWERS as readonly string[]).includes(value);
 
 /** Categories a doubt may carry (glossary "Doubt"). */
 export const DOUBT_CATEGORIES = ['personal-suspected', 'unreadable', 'off-topic'] as const;
 
+/** One doubt category. */
 export type DoubtCategory = (typeof DOUBT_CATEGORIES)[number];

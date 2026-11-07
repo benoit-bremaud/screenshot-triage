@@ -50,11 +50,22 @@ node dist/main.js status --json
 node dist/main.js tags
 ```
 
+## Usage (brick 4, extraction)
+
+```bash
+node dist/main.js extract <id> < sheet.json             # Triaged -> Extracted, knowledge/<domain>/<id>.md (+ thumbnail for a design gem)
+node dist/main.js purge --source ~/Screenshots --dry-run # read the plan first: duplicates, then the original
+node dist/main.js purge --source ~/Screenshots           # local delete and source trash, only once the sheet exists
+node dist/main.js notes --skills-dir ~/.claude/skills    # uncited rules per target skill, read from origin/main
+```
+
+`status` lists the triaged captures still to extract, and `resolve <id> --as personal|delete` also works on a triaged capture (its sheet, if a crashed extract left one, is removed first).
+
 `<id>` is the first 12 hex characters of the capture's SHA-256; a filename never reaches argv. Exit codes: 0 done, 1 transition rejected, 2 usage error, 3 unexpected error. `npm run check` runs typecheck, lint and the tests; with `gitleaks git` (8.30.1) it is the whole CI, run locally; GitHub Actions are not used.
 
 ## Status
 
-Brick 0: repository created, decisions recorded. Brick 2 (triage CLI with a local-directory source): conception and code done. Brick 1 (Immich on the homelab) in `bb-homelab`. Planned: 3 Immich adapter, 4 extraction and enrichment PR, 5 Google Photos backlog, 6 local model in shadow mode.
+Brick 0: repository created, decisions recorded. Brick 2 (triage CLI with a local-directory source): conception and code done. Brick 4 (extraction, purge, field-notes report): conception and CLI done; the `/screenshots` skill is pending, under its own issue in `~/.claude`. Brick 1 (Immich on the homelab) in `bb-homelab`. Planned: 3 Immich adapter, 5 Google Photos backlog, 6 local model in shadow mode.
 
 ## Licence
 

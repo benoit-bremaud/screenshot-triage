@@ -12,3 +12,6 @@ coverage/
 
 # Screenshots, domain folders and thumbnails: third-party content, never committed
 data/
+
+# temporary files of atomic writes (index, sheets)
+*.tmp

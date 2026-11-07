@@ -144,3 +144,38 @@ export const doubtDecision = {
   category: 'personal-suspected',
   reasoning: 'A chat conversation with a first name, no dev or design content.',
 };
+
+/** A valid `extract` payload; tests override one field at a time. */
+export const sheetPayload = {
+  promptVersion: 'extract-v1',
+  model: 'claude-opus-5-5',
+  title: 'Prefer useId for form label ids',
+  summary: 'React 19 generates stable ids.\nAvoid Math.random in render.',
+  rules: [
+    { rank: 1, text: 'Use useId for label and input pairing', kind: 'technical', status: 'verified', evidence: 'https://react.dev/reference/react/useId' },
+    { rank: 2, text: 'Never derive keys from useId', kind: 'technical', status: 'not-found' },
+  ],
+  justification: 'Ids must match between server and client render.',
+  targetSkill: 'react-patterns',
+  author: '@dev.tips_daily',
+};
+
+/** Scans one capture and files it into `domain`; returns its id. */
+export const triagedCapture = async (
+  ws: Workspace,
+  name: string,
+  bytes: Uint8Array,
+  domain = 'frontend',
+): Promise<string> => {
+  const id = await ws.addCapture(name, bytes);
+  await ws.scan();
+  await ws.file(id, { domain });
+  return id;
+};
+
+export const extractRun = (
+  ws: Workspace,
+  id: string,
+  payload: Record<string, unknown> = {},
+  extra: readonly string[] = [],
+): Promise<Run> => ws.run(['extract', id, ...extra], JSON.stringify({ ...sheetPayload, ...payload }));

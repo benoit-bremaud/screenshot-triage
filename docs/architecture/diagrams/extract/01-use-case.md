@@ -52,7 +52,7 @@ flowchart LR
 
 ## Use cases
 
-### UC4 — Extract triaged captures into sheets (status: planned)
+### UC4 — Extract triaged captures into sheets (status: CLI implemented, skill pending)
 
 - **Level**: user goal
 - **Primary actor**: Owner
@@ -82,7 +82,7 @@ flowchart LR
 
 **Business rules**: REQ-6, REQ-10 to REQ-13, REQ-16, REQ-17, NFR-1, NFR-4.
 
-### UC5 — Purge the extracted captures (status: planned)
+### UC5 — Purge the extracted captures (status: implemented)
 
 - **Level**: user goal
 - **Primary actor**: Owner
@@ -100,11 +100,12 @@ flowchart LR
 **Extensions**
 
 - 2a. Owner refuses or postpones: nothing changes; a sheet can be corrected with UC4 ext. 5c.
-- 3a. A source call fails: the original's row stays `extracted` with the error, the purge continues, a re-run completes it, duplicates included (a ref already gone and a missing local file are no-ops).
+- 3a. A source call fails: the original's row stays `extracted` with the error, the purge continues and exits 3, a re-run completes it, duplicates included (a ref already gone and a missing local file are no-ops).
+- 3b. The capture's sheet is missing (the owner deleted it to extract again): the capture is skipped and reported, nothing is deleted.
 
 **Business rules**: REQ-3, REQ-6, REQ-14.
 
-### UC6 — Enrich the skills from new sheets (status: planned)
+### UC6 — Enrich the skills from new sheets (status: CLI implemented, skill pending)
 
 - **Level**: user goal
 - **Primary actor**: Owner

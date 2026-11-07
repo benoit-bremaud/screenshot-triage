@@ -54,7 +54,7 @@ sequenceDiagram
   Skill-->>Owner: purge plan, confirm?
   Owner->>Skill: yes
   Skill->>CLI: purge
-  loop for each extracted capture
+  loop for each extracted capture whose sheet exists (others skipped and reported)
     loop for each of its duplicates
       CLI->>Source: trash(duplicate ref, target)
       CLI->>Store: upsert(duplicate, status = deleted)

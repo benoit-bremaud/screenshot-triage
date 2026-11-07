@@ -8,12 +8,49 @@ import type { DecisionLog } from './store/decision-log.js';
 import { contentHashOf } from './triage/capture.js';
 import { DOMAINS } from './triage/domains.js';
 import { describeEffect, type Effect } from './triage/effects.js';
+import { renderThumbnail } from './thumbnail.js';
 
+/** Where `scan` copies new captures, under `data/`. */
 export const INBOX_FOLDER = 'inbox';
+/** Where design gem thumbnails go, under `data/` (git-ignored, NFR-1). */
+export const THUMBNAILS_FOLDER = 'thumbnails';
+
+/** Where the thumbnail of a capture is written; `extract` reports it when present. */
+export const thumbnailPath = (dataDir: string, id: string): string => join(dataDir, THUMBNAILS_FOLDER, `${id}.jpg`);
+
+/** Where the sheet of a capture is written (ADR-0003 decision 1); `purge` checks it exists before deleting. */
+export const sheetPath = (knowledgeDir: string, domain: string, id: string): string => join(knowledgeDir, domain, `${id}.md`);
+
+/**
+ * A thumbnail is a convenience: an undecodable image is reported as `thumbnail: null` and the sheet and
+ * the row still land. A file-system error propagates, so the row stays `triaged` and a re-run retries.
+ */
+const writeThumbnailOf = async (deps: EffectDeps, localName: string, id: string): Promise<void> => {
+  const from = await locateLocal(deps.dataDir, localName);
+  if (from === undefined) throw new Error(`local copy ${localName} not found`);
+  await mkdir(join(deps.dataDir, THUMBNAILS_FOLDER), { recursive: true });
+  let jpeg: Buffer;
+  try {
+    jpeg = await renderThumbnail(from);
+  } catch {
+    await rm(thumbnailPath(deps.dataDir, id), { force: true });
+    return;
+  }
+  await writeAtomic(thumbnailPath(deps.dataDir, id), jpeg);
+};
+
+/** Writes through a temporary file, so a crash never leaves a half-written sheet or thumbnail. */
+const writeAtomic = async (path: string, content: string | Uint8Array): Promise<void> => {
+  const tmp = `${path}.tmp`;
+  await writeFile(tmp, content);
+  await rename(tmp, path);
+};
 
 /** What the runner needs; `src/cli.ts` builds it once per command. */
 export interface EffectDeps {
   readonly dataDir: string;
+  /** Root of the published sheets, `knowledge/` by default. */
+  readonly knowledgeDir: string;
   readonly source: CaptureSource | undefined;
   readonly index: CaptureIndex;
   readonly log: DecisionLog;
@@ -74,6 +111,18 @@ const run = async (effect: Effect, deps: EffectDeps): Promise<void> => {
       return deps.log.append(effect.line);
     case 'index-write':
       return deps.index.upsert(effect.row);
+    case 'write-sheet':
+      await mkdir(join(deps.knowledgeDir, effect.domain), { recursive: true });
+      await writeAtomic(sheetPath(deps.knowledgeDir, effect.domain, effect.id), effect.markdown);
+      return;
+    case 'write-thumbnail':
+      return writeThumbnailOf(deps, effect.localName, effect.id);
+    case 'remove-sheet':
+      await rm(sheetPath(deps.knowledgeDir, effect.domain, effect.id), { force: true });
+      return;
+    case 'remove-thumbnail':
+      await rm(thumbnailPath(deps.dataDir, effect.id), { force: true });
+      return;
   }
 };
 

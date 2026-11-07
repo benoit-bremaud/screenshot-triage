@@ -2,6 +2,22 @@
 
 Chronological logbook of decisions and events, complementing `git log`. Newest entry first.
 
+## 2026-11-07 — Brick 4 code: extract, purge and notes (#4)
+
+- `src/extract/` (pure, NFR-6 lint block): the sheet payload schema (REQ-10, REQ-11, NFR-4: lengths, control and invisible characters, `https` evidence, handle), the renderer that escapes the Markdown punctuation able to open a link, image, heading, block, table, autolink or math span, and HTML, and the parser that reads rules back from their `[<id>#<rank>]` token.
+- Commands `extract <id>` (sheet, thumbnail, row, in that order), `purge` (duplicates first, the original's row last; a failed capture is reported and stays `extracted`) and `notes --skills-dir` (fetch, then `git show origin/main:`, a rule counts as cited when a field-notes line opens with its item token, new-skill candidates = target skills without `SKILL.md` on `origin/main`). `resolve personal|delete` accepted on a triaged capture (REQ-16), `status` lists the triaged captures (REQ-17).
+- `sharp` 0.34 for the 800 px JPEG thumbnail of a design gem in png, jpg or webp.
+- Tests T-16 to T-23 (195 in all, coverage 96 %); TSDoc added on every export (doc coverage ~99 %).
+- The `/screenshots` skill in `~/.claude` stays to write under its own issue.
+
+## 2026-11-07 — Brick 4 conception merged (#10, `acb297e`)
+
+- ADR-0003: the session extracts and verifies, the CLI validates and renders; a separate `purge`; `notes` derives the uncited rules from the target skills' field notes. Four adversarial rounds; Codex quota exhausted, Copilot unavailable.
+
+## 2026-11-07 — Brick 2 code merged (#9, `84a4a4f`)
+
+- GitHub Actions dropped (owner rule 2026-11-07, billed): local CI only, `npm run check` and `gitleaks git`.
+
 ## 2026-11-06 — Brick 2 code: triage CLI on a local-directory source (#2)
 
 - The CLI of the validated conception lands in `src/`: `scan · file · doubt · resolve · status · tags`, the pure `transition(capture, event)` of `05-state-capture.md` in `src/triage/`, the effect runner with `--dry-run`, the private index and the labels-only decision log in `src/store/`, the `CaptureSource` port and the local-directory adapter (`Personnel/`, `.trash/`, copies named `<id>.<ext>` from the magic bytes).
