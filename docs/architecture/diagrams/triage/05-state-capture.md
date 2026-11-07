@@ -1,8 +1,8 @@
 # State machine diagram — triage — Capture
 
-> **Feature**: epic #1, brick #2 (brick 4 transitions drawn so the enum is final, implemented in brick 4)
+> **Feature**: epic #1, brick #2 (brick 4 transitions specified in `../extract/`, ADR-0003)
 > **Related ADRs**: ADR-0001 (decision 7 and § Lifecycle), ADR-0002
-> **Realises**: UC1, UC2 · **See also**: `02-sequence-triage-batch.md`, `02-sequence-resolve-doubt.md`
+> **Realises**: UC1, UC2, UC4, UC5 · **See also**: `02-sequence-triage-batch.md`, `02-sequence-resolve-doubt.md`
 
 ## Context
 
@@ -25,15 +25,20 @@ stateDiagram-v2
   Doubtful --> Inbox: resolve(work) / record the answer
   Doubtful --> Personal: resolve(personal) / delete local file, source.markPersonal (duplicates too), clear reasoning
   Doubtful --> Deleted: resolve(delete) / delete local file, source.trash (duplicates too)
-  Triaged --> Extracted: sheet written (brick 4) / thumbnail if design gem
-  Extracted --> Deleted: purge (brick 4) / delete local file, source.trash
+  Triaged --> Extracted: extract(sheet) / write sheet, thumbnail if design gem
+  Extracted --> Deleted: purge / duplicates first, then delete local file, source.trash
+  Triaged --> Personal: resolve(personal) / delete local file, source.markPersonal (duplicates too), clear reasoning
+  Triaged --> Deleted: resolve(delete) / delete local file, source.trash (duplicates too)
   Duplicate --> Personal: resolve(personal) on the original / source.markPersonal
   Duplicate --> Deleted: resolve(delete) on the original / source.trash
-  Duplicate --> Deleted: purge [original deleted by purge] (brick 4) / source.trash
+  Duplicate --> Deleted: purge of the original, in its effect list / source.trash
   Personal --> [*]
   Deleted --> [*]
   note right of Triaged
     file(decision) / re-file to the new domain, append decision with answer = correction (internal)
+  end note
+  note right of Extracted
+    extract(sheet) / rewrite sheet and thumbnail (internal)
   end note
   note right of Doubtful
     resolve(personal or delete) --dry-run / print effects, no transition
@@ -57,17 +62,20 @@ stateDiagram-v2
 | — | `scan --dry-run` | — | nothing changed: no copy, no row, every effect printed in order, the 2a source action included | T-7 |
 | Triaged | `file(decision)` | Triaged | re-file to another domain folder, decision appended with `answer = correction` | T-8 |
 | any other (state, event) pair | — | unchanged | rejected with the current status, non-zero exit | T-10 |
-| Triaged | sheet written | Extracted | brick 4 | brick 4 |
-| Extracted | purge | Deleted | brick 4 | brick 4 |
+| Triaged | `extract(sheet)` | Extracted | sheet `knowledge/<domain>/<id>.md`, thumbnail if design gem, index row, in that order | T-16, T-18 |
+| Extracted | `extract(sheet)` | Extracted | sheet and thumbnail rewritten | T-16 |
+| Extracted | `purge` | Deleted | duplicates first (`source.trash`, row), then local delete, `source.trash`, the original's row last; `--dry-run` prints them | T-19 |
+| Triaged | `resolve(personal)` | Personal | as from Doubtful (REQ-16) | T-22 |
+| Triaged | `resolve(delete)` | Deleted | as from Doubtful (REQ-16) | T-22 |
 | Duplicate | `resolve(personal)` on the original | Personal | `source.markPersonal` (or removal from the source when `Personnel/<id>.<ext>` already holds the identical bytes) | T-14 |
 | Duplicate | `resolve(delete)` on the original | Deleted | `source.trash` (same collision rule) | T-14 |
-| Duplicate | purge [original deleted by purge] | Deleted | brick 4 | brick 4 |
+| Duplicate | `purge` of the original, in its effect list | Deleted | `source.trash`, index row, before the original's row | T-19 |
 
 T-9 (90-day reminder) and T-11 to T-13 belong to UC3 and the tag rules, not to this machine; T-14 (a fresh `scan` after losing the index lists no personal or deleted capture) belongs to the source; see the matrix.
 
 ## Notes
 
-- **Rejected events** (T-10 covers one of each): `resolve` on a non-doubtful capture, `file` on a deleted, personal, doubtful or duplicate capture, `doubt` on a triaged capture or on an inbox capture whose `doubtAnswer` is `work`.
+- **Rejected events** (T-10 covers one of each): `resolve` on a capture neither doubtful nor triaged, `resolve(work)` on a triaged capture, `file` on a deleted, personal, doubtful or duplicate capture, `doubt` on a triaged capture or on an inbox capture whose `doubtAnswer` is `work`, `extract` on any status other than triaged or extracted (T-16).
 - **Personal and Deleted are the final statuses** (glossary "Final status") and never re-enter: a personal capture's content is never read again (REQ-5; only the ids in `Personnel/` are listed); a wrongly deleted asset is restored by the owner from the source trash, outside this tool, and the next `scan` then treats it as new: a `deleted` or `personal` row whose ref is listed again (restored asset, re-synced copy under the same name) is replaced by a fresh row from the initial pseudostate, not transitioned (its id is no longer in `.trash/`, so the index row alone does not re-trash it; T-14). The source records both durably, so losing the index never resurfaces them.
 - **Duplicate** is reached only from the initial pseudostate, and only while its original is not final; a copy of a personal or deleted capture that comes back to the source (a phone re-sync) is settled by `scan` itself, so it is never readable after a lost `data/`: the duplicate file is never copied, so there is nothing local to delete. Its row follows its original: when the original is answered personal or delete, every `duplicateOf` row takes the same final status in the same `resolve` effect list, with the same source action, so the brick 4 purge never touches it again; the purge only trashes a duplicate whose original it purged itself (the guard keeps the CLAUDE.md invariant). On the local source a duplicate and its original share the `<id>.<ext>` name: when the target already exists, the duplicate file is removed from the source instead of moved, the bytes being identical.
 - **The four `scan` guards are evaluated in this order, and the first true one fires**: Personal (index row or id in `Personnel/`), then Deleted (id still in `.trash/`), then Duplicate (hash known, original not final), then Inbox as the `[else]`. So after `data/` is lost, a re-synced copy of a personal capture takes the Personal branch, never the Inbox one (T-14 asserts it). The two guards on a returning copy differ on purpose. Personal is the conservative one: the index row or an id in `Personnel/` (Immich: album membership) settles the copy, so it holds after `data/` is lost. Deleted uses the source as the only witness: the copy is re-trashed only while `.trash/<id>.<ext>` (Immich: trash membership) still exists, so a file the owner restored is triaged again as new (T-14). `scan --dry-run` changes nothing and prints every effect (T-7).

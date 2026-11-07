@@ -1,6 +1,6 @@
 # ADR-0001 — Screenshot triage pipeline decisions
 
-Status: accepted, amended by ADR-0002 (decisions 7 and 8, § Bricks) · Date: 2026-11-05 · Deciders: Benoît Bremaud, with Claude Code (MCDA matrices, scores /500).
+Status: accepted, amended by ADR-0002 (decisions 7 and 8, § Bricks) and ADR-0003 (decision 8, § Sheet format) · Date: 2026-11-05 · Deciders: Benoît Bremaud, with Claude Code (MCDA matrices, scores /500).
 Decisions taken on 2026-11-05 for turning Instagram screenshots (taken on an Android phone, backed up to Google Photos) into knowledge that enriches or creates Claude Code skills, frontend design first.
 
 ## Goal
