@@ -12,7 +12,7 @@ One container: a Node CLI in this repository, driven by the `/screenshots` skill
 |---|---|---|
 | [ADR-0001](decisions/0001-pipeline-decisions.md) | Screenshot triage pipeline decisions (13 MCDA choices) | accepted, § Bricks amended by ADR-0002 |
 | [ADR-0002](decisions/0002-classify-in-the-claude-code-session.md) | Classify captures in the Claude Code session and log every filing decision | accepted |
-| [ADR-0003](decisions/0003-extract-in-the-session-render-in-the-cli.md) | Extract in the session, render and purge in the CLI, derive the enrichment batch from the target skills | proposed |
+| [ADR-0003](decisions/0003-extract-in-the-session-render-in-the-cli.md) | Extract in the session, render and purge in the CLI, derive the enrichment batch from the target skills | accepted |
 
 ## Diagrams
 
