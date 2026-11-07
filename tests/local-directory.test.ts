@@ -122,6 +122,17 @@ describe('LocalDirectorySource', () => {
     await expect(source.read('link.png')).rejects.toThrow();
   });
 
+  it('leaves a symbolic link swapped in for the capture where it is', async () => {
+    await rm(join(root, 'a.png'));
+    await writeFile(join(root, 'other.png'), 'bytes');
+    await symlink(join(root, 'other.png'), join(root, 'a.png'));
+
+    await source.markPersonal('a.png', target);
+
+    expect(await readFile(join(root, 'a.png'), 'utf8')).toBe('bytes');
+    expect(await source.finalIds()).toEqual({ personal: new Set(), trashed: new Set() });
+  });
+
   it('lists ids only from the final folders, ignoring foreign names', async () => {
     await mkdir(join(root, '.trash'));
     await writeFile(join(root, '.trash', 'notes.txt'), 'x');

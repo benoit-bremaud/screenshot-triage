@@ -1,5 +1,5 @@
 import { constants } from 'node:fs';
-import { lstat, mkdir, open, readdir, readFile, rename, rm, stat } from 'node:fs/promises';
+import { lstat, mkdir, open, readdir, rename, rm, stat } from 'node:fs/promises';
 import { isAbsolute, join, relative, sep } from 'node:path';
 
 import { isMissing } from '../fs.js';
@@ -100,13 +100,15 @@ export class LocalDirectorySource implements CaptureSource {
     const destination = join(await this.finalFolder(folder), target.localName);
     let info;
     try {
-      info = await stat(from);
+      info = await lstat(from);
     } catch (error) {
       if (isMissing(error)) return;
       throw error;
     }
+    // A link swapped in after the scan is not the capture: it is left alone, never moved.
+    if (!info.isFile()) return;
     const changed = info.size !== target.size || info.mtime.toISOString() !== target.takenAt;
-    if (changed && contentHashOf(await readFile(from)) !== target.contentHash) return;
+    if (changed && contentHashOf(await this.read(ref)) !== target.contentHash) return;
     await mkdir(join(this.root, folder), { recursive: true });
     const record = await lstat(destination).catch((error: unknown) => {
       if (isMissing(error)) return undefined;

@@ -21,4 +21,4 @@ Pipeline that turns phone screenshots of Instagram dev and design posts into Cla
 
 ## Status
 
-Brick 0 done: repository and decisions. Brick 2 done (#2): conception under `docs/architecture/diagrams/triage/`, CLI in `src/`, tests T-1 to T-15 in `tests/`, CI (typecheck, lint, vitest with coverage ≥ 80 %, gitleaks). `npm run check` plus `gitleaks git` (8.30.1) mirror the four CI jobs. Brick 1 (Immich) runs in `bb-homelab`. Brick 6 (#6, local model in shadow mode) waits for the decision log.
+Brick 0 done: repository and decisions. Brick 2 done (#2): conception under `docs/architecture/diagrams/triage/`, CLI in `src/`, tests T-1 to T-15 in `tests/`, local CI only: `npm run check` (typecheck, lint, vitest with coverage ≥ 80 %) plus `gitleaks git` (8.30.1); GitHub Actions are not used (owner rule 2026-11-07, Actions billed). Brick 1 (Immich) runs in `bb-homelab`. Brick 6 (#6, local model in shadow mode) waits for the decision log.

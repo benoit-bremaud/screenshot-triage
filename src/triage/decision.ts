@@ -26,7 +26,7 @@ const common = {
 
 /**
  * Schema of the `file <id>` stdin payload (ADR-0002 § Consequences). Strict: unknown keys are rejected.
- * `confidence` is 0..1 and absent on an owner correction (glossary "Correction").
+ * `confidence` is 0..1 and absent on an owner correction, required on a first filing (enforced in `transition`, which knows the status) (glossary "Correction").
  */
 export const FileDecisionSchema = z.strictObject({
   ...common,
@@ -54,7 +54,7 @@ export interface DecisionLine {
   readonly domain: FileDecision['domain'];
   readonly tags: readonly string[];
   readonly consideredTags: readonly string[];
-  /** 0..1; absent on an owner correction. */
+  /** 0..1; absent on an owner correction, required on a first filing (enforced in `transition`, which knows the status). */
   readonly confidence?: number;
   /** `work` after a doubt the owner kept, `correction` on a re-file, absent otherwise. */
   readonly answer?: 'work' | 'correction';
