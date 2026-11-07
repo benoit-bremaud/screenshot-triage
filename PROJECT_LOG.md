@@ -7,7 +7,7 @@ Chronological logbook of decisions and events, complementing `git log`. Newest e
 - `src/extract/` (pure, NFR-6 lint block): the sheet payload schema (REQ-10, REQ-11, NFR-4: lengths, control and invisible characters, `https` evidence, handle), the renderer that escapes the Markdown punctuation able to open a link, image, heading, block, table, autolink or math span, and HTML, and the parser that reads rules back from their `[<id>#<rank>]` token.
 - Commands `extract <id>` (sheet, thumbnail, row, in that order), `purge` (duplicates first, the original's row last; a failed capture is reported and stays `extracted`) and `notes --skills-dir` (fetch, then `git show origin/main:`, a rule counts as cited when a field-notes line opens with its item token, new-skill candidates = target skills without `SKILL.md` on `origin/main`). `resolve personal|delete` accepted on a triaged capture (REQ-16), `status` lists the triaged captures (REQ-17).
 - `sharp` 0.34 for the 800 px JPEG thumbnail of a design gem in png, jpg or webp.
-- Tests T-16 to T-23 (194 in all, coverage 96 %); TSDoc added on every export (doc coverage ~99 %).
+- Tests T-16 to T-23 (195 in all, coverage 96 %); TSDoc added on every export (doc coverage ~99 %).
 - The `/screenshots` skill in `~/.claude` stays to write under its own issue.
 
 ## 2026-11-07 — Brick 4 conception merged (#10, `acb297e`)

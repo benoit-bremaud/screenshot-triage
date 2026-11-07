@@ -16,6 +16,7 @@ describe('sheet payload schema (T-17)', () => {
 
   it('accepts an emoji sequence joined by a zero-width joiner, refuses a lone joiner', () => {
     expect(parse({ title: 'Dev \u{1F469}‍\u{1F4BB} tips' }).success).toBe(true);
+    expect(parse({ title: 'Dev \u{1F469}\u{1F3FD}‍\u{1F4BB} tips' }).success).toBe(true);
     expect(parse({ title: 'Dev‍tips' }).success).toBe(false);
   });
 

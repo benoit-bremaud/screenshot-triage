@@ -33,7 +33,7 @@ Drivers: recoverability before deletion 40, simplicity 25, owner effort 20, read
 | Invariant readability (15) | 4 — deletion inside a writing command | 5 — one command deletes, one effect list to review |
 | **Total /500** | 365 | **435** |
 
-Sensitivity: moving weight from recoverability to owner effort, A overtakes B at about recoverability 26 and owner effort 34, which ranks one command per batch above a lost image. **Outcome: B.** `purge [--dry-run]` handles each `extracted` row in one effect list: for each of its `duplicate` rows `source.trash` then the row `deleted`, then the local delete of `data/<domain>/<id>.<ext>`, `source.trash` and the original's row `deleted` last; a crash leaves the original `extracted`, so a re-run finds its duplicates again (same order as `resolve` in brick 2). A re-run of `extract` on an `extracted` row rewrites the sheet (correction before the purge).
+Sensitivity: moving weight from recoverability to owner effort, A overtakes B at about recoverability 26 and owner effort 34, which ranks one command per batch above a lost image. **Outcome: B.** `purge [--dry-run]` handles each `extracted` row whose sheet exists in one effect list: for each of its `duplicate` rows `source.trash` then the row `deleted`, then the local delete of `data/<domain>/<id>.<ext>`, `source.trash` and the original's row `deleted` last; a crash leaves the original `extracted`, so a re-run finds its duplicates again (same order as `resolve` in brick 2). A re-run of `extract` on an `extracted` row rewrites the sheet (correction before the purge).
 
 ## Decision 3 — how a batch knows which rules the enrichment PR still carries
 

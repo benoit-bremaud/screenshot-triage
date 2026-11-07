@@ -9,8 +9,8 @@ import { isKebabCase } from '../triage/tags.js';
  */
 const FORBIDDEN = /[\p{Cc}\p{Cf}\p{Co}\p{Cn}\u2028\u2029]/u;
 
-/** A zero-width joiner between two pictographs is part of an emoji sequence (\ud83d\udc69\u200d\ud83d\udcbb), not hidden text. */
-const EMOJI_JOINER = /(?<=\p{Extended_Pictographic}\p{M}*)\u200d(?=\p{Extended_Pictographic})/gu;
+/** A zero-width joiner between two pictographs is part of an emoji sequence (woman technologist, skin tones included), not hidden text. */
+const EMOJI_JOINER = /(?<=\p{Extended_Pictographic}[\p{M}\p{Emoji_Modifier}]*)\u200d(?=\p{Extended_Pictographic})/gu;
 
 const isVisible = (text: string): boolean => !FORBIDDEN.test(text.replace(EMOJI_JOINER, ''));
 

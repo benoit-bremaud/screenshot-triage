@@ -47,10 +47,10 @@ describe('UC6 notes (T-20)', () => {
   });
   afterEach(() => ws.dispose());
 
-  it('returns uncited rules split adopted / to-confirm, whole-token citations read from origin/main', async () => {
+  it('returns uncited rules split adopted / to-confirm, item-token citations read from origin/main', async () => {
     const id = await triagedCapture(ws, 'a.png', png('a'));
     await extractRun(ws, id, { rules: nineRules });
-    // `#10` would match `#1` without the whole-token rule; the working tree is stale on purpose.
+    // `#10` would match `#1` without the item-token rule; the working tree is stale on purpose.
     const { clone, push } = await skillsRepo(ws, `- [${id}#2] cited\n`);
     await push(`- [${id}#2] cited\n- [${id}#10] not a rule\n- [${id}#9] cited\n`);
     await writeFile(join(clone, 'skills', 'react-patterns', 'references', 'field-notes.md'), `${id}#3 local only\n`);
