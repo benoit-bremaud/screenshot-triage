@@ -243,6 +243,7 @@ describe('Codex review on PR #9, third pass', () => {
     const { LocalDirectorySource } = await import('../src/sources/local-directory.js');
     const deps = {
       dataDir: ws.data,
+      knowledgeDir: ws.knowledge,
       source: new LocalDirectorySource(ws.source),
       index: await CaptureIndex.load(join(ws.data, 'index.jsonl')),
       log: new DecisionLog(join(ws.knowledge, 'decisions.jsonl')),

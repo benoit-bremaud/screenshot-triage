@@ -7,11 +7,13 @@ import type { Answer, DoubtCategory, Status } from './status.js';
 /** The id is the first 12 hex characters of the content hash: the only identifier on argv (REQ-9). */
 export const CAPTURE_ID = /^[0-9a-f]{12}$/;
 
+/** True for a well-formed capture id. */
 export const isCaptureId = (value: string): boolean => CAPTURE_ID.test(value);
 
 /** SHA-256 of a capture's bytes, hex: the content hash of the glossary. */
 export const contentHashOf = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
 
+/** The id of a content hash: its first 12 hex characters. */
 export const idOf = (contentHash: string): string => contentHash.slice(0, 12);
 
 /**
@@ -55,6 +57,7 @@ export interface SourceTarget {
 export const localName = (row: Pick<CaptureRow, 'contentHash' | 'ext'>): string =>
   `${idOf(row.contentHash)}.${row.ext}`;
 
+/** What a source call needs about a row, without a second hash. */
 export const targetOf = (row: CaptureRow): SourceTarget => ({
   localName: localName(row),
   contentHash: row.contentHash,

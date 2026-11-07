@@ -59,7 +59,8 @@ export const doubt = (context: CommandContext, id: string | undefined, stdin: st
 };
 
 /**
- * `resolve <id> --as work|personal|delete [--dry-run]` (SEQ-resolve-doubt). `work` has no destructive
+ * `resolve <id> --as work|personal|delete [--dry-run]` (SEQ-resolve-doubt); personal and delete also on a
+ * triaged capture (REQ-16). `work` has no destructive
  * effect, so it ignores `--dry-run` and needs no `--source`.
  */
 export const resolve = (context: CommandContext, id: string | undefined, answer: string | undefined): Promise<number> => {

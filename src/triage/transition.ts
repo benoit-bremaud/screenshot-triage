@@ -1,4 +1,4 @@
-import { localName, targetOf, type CaptureRow } from './capture.js';
+import { idOf, localName, targetOf, type CaptureRow } from './capture.js';
 import type { DecisionLine, DoubtDecision, FileDecision } from './decision.js';
 import type { Effect } from './effects.js';
 import type { ImageExt } from './image.js';
@@ -25,12 +25,17 @@ export interface ScanFacts {
   readonly trashedAtSource: boolean;
 }
 
+/** The events of `05-state-capture.md`, each with the facts its guard reads. */
 export type Event =
   | { readonly type: 'scan'; readonly candidate: ScanCandidate; readonly facts: ScanFacts }
   | { readonly type: 'file'; readonly decision: FileDecision; readonly timestamp: string }
   | { readonly type: 'doubt'; readonly decision: DoubtDecision }
-  | { readonly type: 'resolve'; readonly answer: Answer; readonly duplicates: readonly CaptureRow[] };
+  | { readonly type: 'resolve'; readonly answer: Answer; readonly duplicates: readonly CaptureRow[] }
+  /** `markdown` is the sheet already rendered by `src/extract/`; `gem` is the payload's flag. */
+  | { readonly type: 'extract'; readonly markdown: string; readonly gem: boolean }
+  | { readonly type: 'purge'; readonly duplicates: readonly CaptureRow[] };
 
+/** The outcome of an event: the next status and its effects in order, or a rejection with the current status. */
 export type Transition =
   | { readonly ok: true; readonly next: Status; readonly effects: readonly Effect[] }
   | { readonly ok: false; readonly current: Status | undefined; readonly reason: string };
@@ -61,6 +66,10 @@ export const transition = (capture: CaptureRow | undefined, event: Event): Trans
       return doubt(capture, event.decision);
     case 'resolve':
       return resolve(capture, event.answer, event.duplicates);
+    case 'extract':
+      return extract(capture, event.markdown, event.gem);
+    case 'purge':
+      return purge(capture, event.duplicates);
   }
 };
 
@@ -161,8 +170,11 @@ const doubt = (capture: CaptureRow | undefined, decision: DoubtDecision): Transi
 
 const resolve = (capture: CaptureRow | undefined, answer: Answer, duplicates: readonly CaptureRow[]): Transition => {
   if (capture === undefined) return reject(capture, 'unknown capture');
-  if (capture.status !== 'doubtful') return reject(capture, 'resolve applies to a doubtful capture');
+  if (capture.status !== 'doubtful' && capture.status !== 'triaged') {
+    return reject(capture, 'resolve applies to a doubtful or triaged capture');
+  }
   if (answer === 'work') {
+    if (capture.status === 'triaged') return reject(capture, 'a triaged capture is already work');
     return ok('inbox', [{ kind: 'index-write', row: { ...capture, status: 'inbox', doubtAnswer: 'work' } }]);
   }
   const next: Status = answer === 'personal' ? 'personal' : 'deleted';
@@ -180,4 +192,46 @@ const resolve = (capture: CaptureRow | undefined, answer: Answer, duplicates: re
   }
   effects.push({ kind: 'index-write', row: withoutPrivateText({ ...capture, status: next, doubtAnswer: answer }) });
   return ok(next, effects);
+};
+
+/** Image types the prebuilt `sharp` binaries decode; a HEIC gem gets no thumbnail (ADR-0003 § Thumbnails). */
+const THUMBNAIL_EXTS: ReadonlySet<string> = new Set(['png', 'jpg', 'webp']);
+
+const extract = (capture: CaptureRow | undefined, markdown: string, gem: boolean): Transition => {
+  if (capture === undefined) return reject(capture, 'unknown capture');
+  if (capture.status !== 'triaged' && capture.status !== 'extracted') {
+    return reject(capture, 'extract applies to a triaged or extracted capture');
+  }
+  const domain = capture.domain;
+  if (domain === undefined || domain === 'other') return reject(capture, 'a capture filed as other is never extracted');
+  const id = idOf(capture.contentHash);
+  // Order of 02-sequence-extract-batch: sheet, thumbnail, row; a crash before the row leaves a re-runnable `extract`.
+  const thumbnail: Effect =
+    domain === 'design' && gem && THUMBNAIL_EXTS.has(capture.ext)
+      ? { kind: 'write-thumbnail', id, localName: localName(capture) }
+      : { kind: 'remove-thumbnail', id };
+  return ok('extracted', [
+    { kind: 'write-sheet', id, domain, markdown },
+    thumbnail,
+    { kind: 'index-write', row: { ...capture, status: 'extracted' } },
+  ]);
+};
+
+const purge = (capture: CaptureRow | undefined, duplicates: readonly CaptureRow[]): Transition => {
+  if (capture === undefined) return reject(capture, 'unknown capture');
+  if (capture.status !== 'extracted') return reject(capture, 'purge applies to an extracted capture');
+  // Duplicates first, the original's row last: a crash leaves it `extracted`, so a re-run finds them again (REQ-14).
+  const effects: Effect[] = [];
+  for (const duplicate of duplicates) {
+    effects.push(
+      { kind: 'source-trash', ref: duplicate.ref, target: targetOf(duplicate) },
+      { kind: 'index-write', row: { ...duplicate, status: 'deleted' } },
+    );
+  }
+  effects.push(
+    { kind: 'delete-local', localName: localName(capture) },
+    { kind: 'source-trash', ref: capture.ref, target: targetOf(capture) },
+    { kind: 'index-write', row: { ...capture, status: 'deleted' } },
+  );
+  return ok('deleted', effects);
 };

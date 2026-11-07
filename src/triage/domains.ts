@@ -10,4 +10,5 @@ export const DOMAINS = [
   'other',
 ] as const;
 
+/** One of the eight fixed domains. */
 export type Domain = (typeof DOMAINS)[number];

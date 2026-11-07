@@ -7,7 +7,8 @@ import { isKebabCase } from './tags.js';
 /** Identifiers that reach the public log are tokens, never sentences (CLAUDE.md "nothing private in Git"). */
 const TOKEN = /^[a-z0-9][a-z0-9.:-]{0,39}$/;
 
-const token = z.string().regex(TOKEN, 'A token: lowercase letters, digits, dot, colon or dash, 40 characters at most');
+/** A label that may reach the public log: a short token, never a sentence. */
+export const token = z.string().regex(TOKEN, 'A token: lowercase letters, digits, dot, colon or dash, 40 characters at most');
 
 const tag = z.string().max(40).refine(isKebabCase, 'Tags are kebab-case English');
 
@@ -42,7 +43,9 @@ export const DoubtDecisionSchema = z.strictObject({
   category: z.enum(DOUBT_CATEGORIES),
 });
 
+/** A validated `file` payload. */
 export type FileDecision = z.infer<typeof FileDecisionSchema>;
+/** A validated `doubt` payload. */
 export type DoubtDecision = z.infer<typeof DoubtDecisionSchema>;
 
 /** One line of the versioned `knowledge/decisions.jsonl`: labels only, no ref, no free text (REQ-4). */

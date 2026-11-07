@@ -25,30 +25,44 @@ const decision: FileDecision = {
 };
 const doubtDecision: DoubtDecision = { promptVersion: 'triage-v1', model: 'm', reasoning: 'Text.', category: 'off-topic' };
 
-const events: Record<'file' | 'doubt' | 'resolve', Event> = {
+const COMMANDS = ['file', 'doubt', 'resolve', 'extract', 'purge'] as const;
+
+const events: Record<(typeof COMMANDS)[number], Event> = {
   file: { type: 'file', decision, timestamp: '2026-11-06T12:00:00.000Z' },
   doubt: { type: 'doubt', decision: doubtDecision },
   resolve: { type: 'resolve', answer: 'delete', duplicates: [] },
+  extract: { type: 'extract', markdown: '# sheet', gem: false },
+  purge: { type: 'purge', duplicates: [] },
 };
 
 /** The legal (status, command) pairs of 05-state-capture; every other pair is rejected (REQ-8). */
-const legal = new Set(['inbox:file', 'triaged:file', 'inbox:doubt', 'doubtful:resolve']);
+const legal = new Set([
+  'inbox:file',
+  'triaged:file',
+  'inbox:doubt',
+  'doubtful:resolve',
+  'triaged:resolve',
+  'triaged:extract',
+  'extracted:extract',
+  'extracted:purge',
+]);
 
 const cases = STATUSES.flatMap((status) =>
-  (['file', 'doubt', 'resolve'] as const).map((command) => ({ status, command })),
+  COMMANDS.map((command) => ({ status, command })),
 );
 
 describe('transition matrix (REQ-8)', () => {
   it.each(cases)('$command on a $status capture', ({ status, command }) => {
     // A first filing carries a confidence; an owner correction never does.
     const event = command === 'file' && status !== 'triaged' ? { ...events.file, decision: { ...decision, confidence: 0.9 } } : events[command];
-    const result = transition(row(status), event as Event);
+    // A capture past triage carries its domain; `extract` reads it from the row.
+    const result = transition({ ...row(status), domain: 'frontend' }, event as Event);
 
     expect(result.ok).toBe(legal.has(`${status}:${command}`));
     if (!result.ok) expect(result.current).toBe(status);
   });
 
-  it.each(['file', 'doubt', 'resolve'] as const)('%s on an unknown capture is rejected without a status', (command) => {
+  it.each(COMMANDS)('%s on an unknown capture is rejected without a status', (command) => {
     const result = transition(undefined, events[command]);
 
     expect(result).toMatchObject({ ok: false, current: undefined, reason: 'unknown capture' });
@@ -107,5 +121,44 @@ describe('decision schema keeps free text out of the public log (CLAUDE.md)', ()
 
   it('accepts a regular decision', () => {
     expect(FileDecisionSchema.safeParse(valid).success).toBe(true);
+  });
+});
+
+describe('brick 4 transitions (05-state-capture)', () => {
+  const extract: Event = { type: 'extract', markdown: '# sheet', gem: true };
+
+  it('extract on a triaged other capture is rejected (REQ-10)', () => {
+    expect(transition({ ...row('triaged'), domain: 'other' }, extract)).toMatchObject({ ok: false, current: 'triaged' });
+  });
+
+  it('extract orders sheet, thumbnail, row; a design gem in png gets a thumbnail', () => {
+    const result = transition({ ...row('triaged'), domain: 'design' }, extract);
+
+    expect(result.ok && result.effects.map((effect) => effect.kind)).toEqual(['write-sheet', 'write-thumbnail', 'index-write']);
+  });
+
+  it('a HEIC design gem gets no thumbnail', () => {
+    const result = transition({ ...row('triaged'), domain: 'design', ext: 'heic' }, extract);
+
+    expect(result.ok && result.effects[1]?.kind).toBe('remove-thumbnail');
+  });
+
+  it('resolve work on a triaged capture is rejected', () => {
+    const result = transition(row('triaged'), { type: 'resolve', answer: 'work', duplicates: [] });
+
+    expect(result).toMatchObject({ ok: false, reason: 'a triaged capture is already work' });
+  });
+
+  it('purge trashes the duplicates before the original and writes the original row last (REQ-14)', () => {
+    const duplicate: CaptureRow = { ...row('duplicate'), ref: 'b.png', duplicateOf: 'a.png' };
+    const result = transition({ ...row('extracted'), domain: 'frontend' }, { type: 'purge', duplicates: [duplicate] });
+
+    expect(result.ok && result.effects.map((effect) => effect.kind)).toEqual([
+      'source-trash',
+      'index-write',
+      'delete-local',
+      'source-trash',
+      'index-write',
+    ]);
   });
 });

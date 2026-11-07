@@ -5,6 +5,7 @@ import type { Status } from '../triage/status.js';
 import { scanRevisits, transition, type ScanCandidate } from '../triage/transition.js';
 import { EXIT_OK, entryOf, requireSource, type CaptureEntry, type CommandContext } from './context.js';
 
+/** What `scan` prints: the inbox entries for the skill and the counts of the other guards. */
 export interface ScanReport {
   /** Every capture awaiting a decision, new or not. */
   readonly inbox: readonly CaptureEntry[];

@@ -20,6 +20,8 @@ export interface StatusReport {
   readonly byDomain: Partial<Record<Domain, number>>;
   /** Doubtful captures awaiting an answer: the list UC2 iterates. */
   readonly doubtful: readonly (CaptureEntry & { category?: string; reasoning?: string })[];
+  /** Triaged captures with their domain and tags: the list UC4 extracts (REQ-17). */
+  readonly triaged: readonly (CaptureEntry & { domain?: Domain; tags: readonly string[] })[];
   readonly tags: readonly TagCount[];
   /** Triaged `other` captures taken more than 90 days ago. */
   readonly oldOther: readonly { id: string; takenAt: string }[];
@@ -36,6 +38,7 @@ export const tagCounts = (context: CommandContext): TagCount[] => {
     .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
 };
 
+/** Builds the UC3 report from the index; `status` prints it. */
 export const buildStatus = async (context: CommandContext): Promise<StatusReport> => {
   const rows = context.index.all();
   const byStatus: Partial<Record<Status, number>> = {};
@@ -53,11 +56,21 @@ export const buildStatus = async (context: CommandContext): Promise<StatusReport
       ...(row.reasoning === undefined ? {} : { reasoning: row.reasoning }),
     });
   }
+  const triaged: StatusReport['triaged'][number][] = [];
+  for (const row of rows) {
+    if (row.status !== 'triaged') continue;
+    triaged.push({
+      ...(await entryOf(context, row)),
+      ...(row.domain === undefined ? {} : { domain: row.domain }),
+      tags: row.tags ?? [],
+    });
+  }
   const limit = context.now().getTime() - OLD_OTHER_DAYS * DAY_MS;
   return {
     byStatus,
     byDomain,
     doubtful,
+    triaged,
     tags: tagCounts(context),
     oldOther: rows
       .filter((row) => row.domain === 'other' && row.status === 'triaged' && Date.parse(row.takenAt) < limit)
@@ -76,6 +89,8 @@ export const status = async (context: CommandContext, json: boolean): Promise<nu
   context.out(`domains: ${format(report.byDomain)}`);
   context.out(`doubtful: ${String(report.doubtful.length)} awaiting an answer`);
   for (const item of report.doubtful) context.out(`  ${item.id} ${item.category ?? ''}`);
+  context.out(`triaged: ${String(report.triaged.length)} to extract`);
+  for (const item of report.triaged) context.out(`  ${item.id} ${item.domain ?? ''} ${item.tags.join(',')}`);
   context.out('tags:');
   for (const tag of report.tags) {
     context.out(`  ${tag.tag} ${String(tag.count)}${tag.newSkillCandidate ? ' (new-skill candidate)' : ''}`);

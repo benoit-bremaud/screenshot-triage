@@ -4,6 +4,7 @@ import { parseArgs } from 'node:util';
 
 import { EXIT_INTERNAL, EXIT_OK, EXIT_USAGE, UsageError, type CommandContext } from './commands/context.js';
 import { doubt, file, resolve } from './commands/decide.js';
+import { extract, notes, purge } from './commands/extract.js';
 import { scan } from './commands/scan.js';
 import { status, tags } from './commands/status.js';
 import { isMissing } from './fs.js';
@@ -15,7 +16,7 @@ import { DecisionLog } from './store/decision-log.js';
 
 /** The process boundary, injectable for tests. */
 export interface CliIo {
-  /** Read only by `file` and `doubt`, so the other commands never wait on a terminal. */
+  /** Read only by `file`, `doubt` and `extract`, so the other commands never wait on a terminal. */
   readonly readStdin: () => Promise<string>;
   /** One line per call. */
   readonly out: (line: string) => void;
@@ -23,13 +24,17 @@ export interface CliIo {
   readonly now?: () => Date;
 }
 
+/** The help text printed by `--help` and after a usage error. */
 export const USAGE = [
   'usage: screenshot-triage <command> [options]',
   '  scan    --source <dir> [--dry-run]            copy new captures into data/inbox',
   '  file    <id> [--dry-run]                      decision JSON on stdin',
   '  doubt   <id> [--dry-run]                      doubt JSON on stdin',
   '  resolve <id> --as work|personal|delete [--source <dir>] [--dry-run]',
-  '          (personal and delete need --source; work ignores --dry-run)',
+  '          (personal and delete need --source; work ignores --dry-run; triaged: personal or delete)',
+  '  extract <id> [--dry-run]                      sheet JSON on stdin',
+  '  purge   --source <dir> [--dry-run]            delete the extracted captures and their duplicates',
+  '  notes   --skills-dir <dir>                    uncited rules per target skill, from origin/main',
   '  status  [--json]',
   '  tags',
   'options: --data <dir> (default ./data)  --knowledge <dir> (default ./knowledge)  --help',
@@ -58,8 +63,8 @@ const isParseArgsError = (error: unknown): error is Error =>
   error instanceof Error && 'code' in error && String(error.code).startsWith('ERR_PARSE_ARGS');
 
 /** Commands that take a capture id; the others take no positional argument. */
-const ID_COMMANDS: ReadonlySet<string> = new Set(['file', 'doubt', 'resolve']);
-const COMMANDS: ReadonlySet<string> = new Set([...ID_COMMANDS, 'scan', 'status', 'tags']);
+const ID_COMMANDS: ReadonlySet<string> = new Set(['file', 'doubt', 'resolve', 'extract']);
+const COMMANDS: ReadonlySet<string> = new Set([...ID_COMMANDS, 'scan', 'purge', 'notes', 'status', 'tags']);
 
 const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => {
   const { values, positionals } = parseArgs({
@@ -70,6 +75,7 @@ const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => 
       data: { type: 'string', default: './data' },
       knowledge: { type: 'string', default: './knowledge' },
       as: { type: 'string' },
+      'skills-dir': { type: 'string' },
       'dry-run': { type: 'boolean', default: false },
       json: { type: 'boolean', default: false },
       help: { type: 'boolean', default: false },
@@ -81,7 +87,7 @@ const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => 
     return command === undefined && !values.help ? EXIT_USAGE : EXIT_OK;
   }
   // Every argv check runs before the first persistent side effect, the source pin; a stdin payload
-  // is read only by `file` and `doubt`, which never pin.
+  // is read only by `file`, `doubt` and `extract`, which never pin.
   if (!COMMANDS.has(command)) throw new UsageError(`unknown command: ${command}`);
   const unexpected = ID_COMMANDS.has(command) ? extra : [id, ...extra].filter((arg) => arg !== undefined);
   if (unexpected.length > 0) throw new UsageError(`unexpected argument: ${unexpected.join(' ')}`);
@@ -97,14 +103,15 @@ const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => 
   }
   if (values.source !== undefined) await assertDisjoint(values.source, [values.data, values.knowledge]);
   const index = await CaptureIndex.load(join(values.data, 'index.jsonl'));
-  // Only a command that will act on the source pins it: `scan`, and `resolve personal|delete` on a
-  // doubtful capture. A mistyped --source on any other command, or a rejected resolve, locks nothing.
+  // Only a command that will act on the source pins it: `scan`, `purge`, and `resolve personal|delete` on a
+  // doubtful or triaged capture. A mistyped --source on any other command, or a rejected resolve, locks nothing.
+  const resolvable = ['doubtful', 'triaged'].includes(index.byId(id ?? '')?.status ?? '');
   const actsOnSource =
-    command === 'scan' ||
-    (command === 'resolve' && values.as !== 'work' && index.byId(id ?? '')?.status === 'doubtful');
+    command === 'scan' || command === 'purge' || (command === 'resolve' && values.as !== 'work' && resolvable);
   if (values.source !== undefined && actsOnSource) await pinSource(values.source, values.data, values['dry-run']);
   const context: CommandContext = {
     dataDir: values.data,
+    knowledgeDir: values.knowledge,
     source: values.source === undefined ? undefined : new LocalDirectorySource(values.source),
     index,
     log: new DecisionLog(join(values.knowledge, 'decisions.jsonl')),
@@ -122,6 +129,12 @@ const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => 
       return doubt(context, id, await io.readStdin());
     case 'resolve':
       return resolve(context, id, values.as);
+    case 'extract':
+      return extract(context, id, await io.readStdin());
+    case 'purge':
+      return purge(context);
+    case 'notes':
+      return notes(context, values['skills-dir']);
     case 'status':
       return status(context, values.json);
     case 'tags':

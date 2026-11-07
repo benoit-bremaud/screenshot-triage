@@ -52,7 +52,7 @@ flowchart LR
 
 ## Use cases
 
-### UC4 — Extract triaged captures into sheets (status: planned)
+### UC4 — Extract triaged captures into sheets (status: CLI implemented, skill pending)
 
 - **Level**: user goal
 - **Primary actor**: Owner
@@ -82,7 +82,7 @@ flowchart LR
 
 **Business rules**: REQ-6, REQ-10 to REQ-13, REQ-16, REQ-17, NFR-1, NFR-4.
 
-### UC5 — Purge the extracted captures (status: planned)
+### UC5 — Purge the extracted captures (status: implemented)
 
 - **Level**: user goal
 - **Primary actor**: Owner
@@ -104,7 +104,7 @@ flowchart LR
 
 **Business rules**: REQ-3, REQ-6, REQ-14.
 
-### UC6 — Enrich the skills from new sheets (status: planned)
+### UC6 — Enrich the skills from new sheets (status: CLI implemented, skill pending)
 
 - **Level**: user goal
 - **Primary actor**: Owner

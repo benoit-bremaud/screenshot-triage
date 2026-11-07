@@ -8,12 +8,27 @@ import type { DecisionLog } from './store/decision-log.js';
 import { contentHashOf } from './triage/capture.js';
 import { DOMAINS } from './triage/domains.js';
 import { describeEffect, type Effect } from './triage/effects.js';
+import { writeThumbnail } from './thumbnail.js';
 
+/** Where `scan` copies new captures, under `data/`. */
 export const INBOX_FOLDER = 'inbox';
+/** Where design gem thumbnails go, under `data/` (git-ignored, NFR-1). */
+export const THUMBNAILS_FOLDER = 'thumbnails';
+
+const thumbnailPath = (dataDir: string, id: string): string => join(dataDir, THUMBNAILS_FOLDER, `${id}.jpg`);
+
+/** Writes through a temporary file, so a crash never leaves a half-written sheet. */
+const writeAtomic = async (path: string, text: string): Promise<void> => {
+  const tmp = `${path}.tmp`;
+  await writeFile(tmp, text, 'utf8');
+  await rename(tmp, path);
+};
 
 /** What the runner needs; `src/cli.ts` builds it once per command. */
 export interface EffectDeps {
   readonly dataDir: string;
+  /** Root of the published sheets, `knowledge/` by default. */
+  readonly knowledgeDir: string;
   readonly source: CaptureSource | undefined;
   readonly index: CaptureIndex;
   readonly log: DecisionLog;
@@ -74,6 +89,22 @@ const run = async (effect: Effect, deps: EffectDeps): Promise<void> => {
       return deps.log.append(effect.line);
     case 'index-write':
       return deps.index.upsert(effect.row);
+    case 'write-sheet': {
+      const folder = join(deps.knowledgeDir, effect.domain);
+      await mkdir(folder, { recursive: true });
+      await writeAtomic(join(folder, `${effect.id}.md`), effect.markdown);
+      return;
+    }
+    case 'write-thumbnail': {
+      const from = await locateLocal(deps.dataDir, effect.localName);
+      if (from === undefined) throw new Error(`local copy ${effect.localName} not found`);
+      await mkdir(join(deps.dataDir, THUMBNAILS_FOLDER), { recursive: true });
+      await writeThumbnail(from, thumbnailPath(deps.dataDir, effect.id));
+      return;
+    }
+    case 'remove-thumbnail':
+      await rm(thumbnailPath(deps.dataDir, effect.id), { force: true });
+      return;
   }
 };
 

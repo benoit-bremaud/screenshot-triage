@@ -35,6 +35,28 @@ const pureTriageCore = {
   },
 };
 
+/** src/extract/ is pure (NFR-6): no store, sources, file system or image library. */
+const pureExtractCore = {
+  files: ['src/extract/**/*.ts'],
+  rules: {
+    'no-restricted-imports': [
+      'error',
+      {
+        paths: [
+          { name: '@immich/sdk', message: 'Only src/sources/ imports the Immich SDK.' },
+          { name: 'sharp', message: 'src/extract/ is pure: the thumbnail runs as an effect.' },
+        ],
+        patterns: [
+          {
+            group: ['../store/**', '../sources/**', '../effects', '../effects.js', '../fs', '../fs.js', '../thumbnail', '../thumbnail.js', '../commands/**', '../cli.js', 'node:fs', 'node:fs/*', 'sharp/*', '@immich/sdk/*'],
+            message: 'src/extract/ imports nothing from store, sources, effects, commands, the file system or sharp.',
+          },
+        ],
+      },
+    ],
+  },
+};
+
 export default tseslint.config(
   { ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'data/**'] },
   {
@@ -67,4 +89,5 @@ export default tseslint.config(
   },
   sourceSdkOutsideSources,
   pureTriageCore,
+  pureExtractCore,
 );

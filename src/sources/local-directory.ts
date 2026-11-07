@@ -7,7 +7,9 @@ import { contentHashOf, isCaptureId, type SourceTarget } from '../triage/capture
 import { IMAGE_EXTENSIONS } from '../triage/image.js';
 import type { CaptureSource, FinalIds, SourceCapture } from './capture-source.js';
 
+/** Source subfolder holding personal captures: ids listed, bytes never read. */
 export const PERSONAL_FOLDER = 'Personnel';
+/** Source subfolder acting as the trash: restorable, ids listed only. */
 export const TRASH_FOLDER = '.trash';
 
 /** Final folders hold `<id>.<ext>` names with a whitelisted image extension; anything else there is ignored. */

@@ -4,6 +4,7 @@
  */
 export const IMAGE_EXTENSIONS = ['png', 'jpg', 'webp', 'heic'] as const;
 
+/** A whitelisted image extension, from the magic bytes. */
 export type ImageExt = (typeof IMAGE_EXTENSIONS)[number];
 
 const HEIF_BRANDS = new Set(['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'mif1', 'msf1']);

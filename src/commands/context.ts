@@ -13,10 +13,13 @@ export interface CommandContext extends EffectDeps {
   readonly err: (line: string) => void;
 }
 
-/** Exit codes: 0 done, 1 rejected transition (REQ-8), 2 usage, 3 unexpected error. */
+/** Done. */
 export const EXIT_OK = 0;
+/** The transition was rejected (REQ-8). */
 export const EXIT_REJECTED = 1;
+/** Wrong invocation or invalid payload. */
 export const EXIT_USAGE = 2;
+/** Unexpected error, message on stderr. */
 export const EXIT_INTERNAL = 3;
 
 /** A wrong invocation: bad id, bad flag, invalid payload; reported with the usage, exit 2. */
@@ -34,6 +37,7 @@ export const rowForId = (context: CommandContext, id: string | undefined): Captu
   return context.index.byId(id) ?? context.index.latestById(id);
 };
 
+/** The source of a destructive command; its absence is a usage error. */
 export const requireSource = (context: CommandContext): CaptureSource => {
   if (context.source === undefined) throw new UsageError('this command needs --source <dir>');
   return context.source;
