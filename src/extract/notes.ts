@@ -13,7 +13,7 @@ export const sheetUrl = (sheet: Pick<ParsedSheet, 'domain' | 'id'>): string =>
  * evidence URL ending in `<id>#<n>` inside another item cites nothing.
  */
 export const isCited = (rule: Pick<ParsedRule, 'id' | 'rank'>, fieldNotes: string): boolean =>
-  new RegExp(`^- \\[${rule.id}#${String(rule.rank)}\\]`, 'm').test(fieldNotes);
+  new RegExp(String.raw`^- \[${rule.id}#${String(rule.rank)}\]`, 'm').test(fieldNotes);
 
 /** The uncited rules of one target skill, rendered as escaped items, split by status (REQ-15). */
 export interface SkillNotes {

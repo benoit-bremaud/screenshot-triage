@@ -59,6 +59,8 @@ node dist/main.js purge --source ~/Screenshots           # local delete and sour
 node dist/main.js notes --skills-dir ~/.claude/skills    # uncited rules per target skill, read from origin/main
 ```
 
+`status` lists the triaged captures still to extract, and `resolve <id> --as personal|delete` also works on a triaged capture (its sheet, if a crashed extract left one, is removed first).
+
 `<id>` is the first 12 hex characters of the capture's SHA-256; a filename never reaches argv. Exit codes: 0 done, 1 transition rejected, 2 usage error, 3 unexpected error. `npm run check` runs typecheck, lint and the tests; with `gitleaks git` (8.30.1) it is the whole CI, run locally; GitHub Actions are not used.
 
 ## Status

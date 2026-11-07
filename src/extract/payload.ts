@@ -10,9 +10,9 @@ import { isKebabCase } from '../triage/tags.js';
 const FORBIDDEN = /[\p{Cc}\p{Cf}\p{Co}\p{Cn}\u2028\u2029]/u;
 
 /** A zero-width joiner between two pictographs is part of an emoji sequence (woman technologist, skin tones included), not hidden text. */
-const EMOJI_JOINER = /(?<=\p{Extended_Pictographic}[\p{M}\p{Emoji_Modifier}]*)\u200d(?=\p{Extended_Pictographic})/gu;
+const EMOJI_JOINER = /(\p{Extended_Pictographic}[\p{M}\p{Emoji_Modifier}]*)\u200d(?=\p{Extended_Pictographic})/gu;
 
-const isVisible = (text: string): boolean => !FORBIDDEN.test(text.replace(EMOJI_JOINER, ''));
+const isVisible = (text: string): boolean => !FORBIDDEN.test(text.replace(EMOJI_JOINER, '$1'));
 
 const line = (max: number) =>
   z
@@ -45,7 +45,9 @@ export const RULE_STATUSES = [...TECHNICAL_STATUSES, ...DESIGN_STATUSES] as cons
 /** One rule status. */
 export type RuleStatus = (typeof RULE_STATUSES)[number];
 /** Whether a rule is checked against docs (`technical`) or against the target skill (`design`). */
-export type RuleKind = 'technical' | 'design';
+export const RULE_KINDS = ['technical', 'design'] as const;
+/** One rule kind. */
+export type RuleKind = (typeof RULE_KINDS)[number];
 
 /** Statuses that land in the `adopted` section of the field notes; the others go to `to-confirm` (REQ-15). */
 export const ADOPTED_STATUSES: readonly RuleStatus[] = ['verified', 'consistent'];
@@ -54,12 +56,12 @@ const RuleSchema = z
   .strictObject({
     rank: z.number().int().min(1).max(9),
     text: line(300),
-    kind: z.enum(['technical', 'design']),
+    kind: z.enum(RULE_KINDS),
     status: z.enum(RULE_STATUSES),
     evidence: evidence.optional(),
   })
   .refine(
-    (rule) => (rule.kind === 'technical' ? TECHNICAL_STATUSES : DESIGN_STATUSES).some((status) => status === rule.status),
+    (rule) => (rule.kind === 'technical' ? (TECHNICAL_STATUSES as readonly RuleStatus[]) : (DESIGN_STATUSES as readonly RuleStatus[])).includes(rule.status),
     'A technical rule is verified, contradicted or not-found; a design rule consistent or in-tension (REQ-11)',
   );
 

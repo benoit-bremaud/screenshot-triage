@@ -37,7 +37,8 @@ describe('triaged captures: resolve (T-22) and status (T-23)', () => {
 
   it('T-22: a sheet left by a crashed extract is removed by resolve personal', async () => {
     const id = await triagedCapture(ws, 'a.png', png('a'), 'design');
-    await extractRun(ws, id);
+    expect((await extractRun(ws, id)).code).toBe(0);
+    expect(await ws.list('knowledge', 'design')).toEqual([`${id}.md`]);
     // Crash after write-sheet, before the row: the sheet exists, the row is still triaged.
     await ws.rewriteIndex((row) => ({ ...row, status: 'triaged' }));
 
@@ -47,7 +48,8 @@ describe('triaged captures: resolve (T-22) and status (T-23)', () => {
 
   it('T-22: an owner correction removes a crashed sheet from the old domain', async () => {
     const id = await triagedCapture(ws, 'a.png', png('a'));
-    await extractRun(ws, id);
+    expect((await extractRun(ws, id)).code).toBe(0);
+    expect(await ws.list('knowledge', 'frontend')).toEqual([`${id}.md`]);
     await ws.rewriteIndex((row) => ({ ...row, status: 'triaged' }));
 
     const run = await ws.file(id, { domain: 'backend', model: 'owner', confidence: undefined });

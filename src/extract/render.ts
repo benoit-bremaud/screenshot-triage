@@ -1,5 +1,5 @@
 import { isKebabCase } from '../triage/tags.js';
-import { RULE_STATUSES, type RuleKind, type RuleStatus, type SheetPayload } from './payload.js';
+import { RULE_KINDS, RULE_STATUSES, type RuleKind, type RuleStatus, type SheetPayload } from './payload.js';
 
 /**
  * Markdown punctuation that could open a link, an image, a heading, emphasis, a table, a fenced block or an
@@ -41,7 +41,7 @@ export interface ParsedSheet {
 
 /** The rule line: `- [<id>#<rank>] <status> (<kind>) <escaped text>[ — evidence \`<url>\`]` (REQ-12). */
 const RULE_LINE = new RegExp(
-  `^- \\[([0-9a-f]{12})#([1-9])\\] (${RULE_STATUSES.join('|')}) \\((technical|design)\\) (.+?)(?: — evidence \`(https://[^\\s\`<>]+)\`)?$`,
+  `^- \\[([0-9a-f]{12})#([1-9])\\] (${RULE_STATUSES.join('|')}) \\((${RULE_KINDS.join('|')})\\) (.+?)(?: — evidence \`(https://[^\\s\`<>]+)\`)?$`,
 );
 
 const ruleLine = (rule: ParsedRule): string =>

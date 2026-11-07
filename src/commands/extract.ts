@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { z } from 'zod';
 
-import { runEffects, thumbnailPath } from '../effects.js';
+import { runEffects, sheetPath, thumbnailPath } from '../effects.js';
 import { exists, isMissing } from '../fs.js';
 import { uncitedNotes, type SkillNotes } from '../extract/notes.js';
 import { SheetPayloadSchema } from '../extract/payload.js';
@@ -16,7 +16,11 @@ import { EXIT_INTERNAL, EXIT_OK, reportRejection, requireSource, rowForId, Usage
 
 const run = promisify(execFile);
 
-/** `extract <id> [--dry-run]`: Triaged or Extracted → Extracted, one sheet payload on stdin (UC4, REQ-10). */
+/**
+ * `extract <id> [--dry-run]`: Triaged or Extracted → Extracted, one sheet payload on stdin (UC4, REQ-10).
+ * Prints `{id, status, sheet, thumbnail, gemWithoutThumbnail?, dryRun}`; `thumbnail` is null when none was written.
+ * @throws UsageError on non-JSON stdin or a payload the schema rejects (exit 2).
+ */
 export const extract = async (context: CommandContext, id: string | undefined, stdin: string): Promise<number> => {
   const row = rowForId(context, id);
   let json: unknown;
@@ -33,7 +37,7 @@ export const extract = async (context: CommandContext, id: string | undefined, s
   const result = transition(row, { type: 'extract', markdown, gem: sheet.gem === true });
   if (!result.ok) return reportRejection(context, result);
   await runEffects(result.effects, context);
-  const sheetPath = join(context.knowledgeDir, row?.domain ?? '', `${id ?? ''}.md`);
+  const sheetFile = sheetPath(context.knowledgeDir, row?.domain ?? '', id ?? '');
   // A gem without thumbnail (HEIC, undecodable image) is reported as null (ADR-0003 § Thumbnails).
   const wantsThumbnail = result.effects.some((effect) => effect.kind === 'write-thumbnail');
   const thumbnail = thumbnailPath(context.dataDir, id ?? '');
@@ -41,7 +45,7 @@ export const extract = async (context: CommandContext, id: string | undefined, s
     JSON.stringify({
       id,
       status: context.dryRun ? row?.status : result.next,
-      sheet: sheetPath,
+      sheet: sheetFile,
       thumbnail: wantsThumbnail && (context.dryRun || (await exists(thumbnail))) ? thumbnail : null,
       ...(sheet.gem === true && !wantsThumbnail ? { gemWithoutThumbnail: true } : {}),
       dryRun: context.dryRun,
@@ -51,9 +55,10 @@ export const extract = async (context: CommandContext, id: string | undefined, s
 };
 
 /**
- * `purge [--dry-run]` (UC5, REQ-14): every extracted capture whose sheet exists, and its duplicates, become
+ * `purge --source DIR [--dry-run]` (UC5, REQ-14): every extracted capture whose sheet exists, and its duplicates, become
  * `deleted`. A capture without its sheet is skipped (deletion only after a sheet, CLAUDE.md); a failed one is
- * reported, keeps `extracted` with an error flag, and the purge goes on; a re-run completes it. Exit 3 when any failed.
+ * reported, keeps `extracted` with an error flag, and the purge goes on; a re-run completes it. Prints
+ * `{purged, failed, skipped, dryRun}`; exit 3 when any failed.
  */
 export const purge = async (context: CommandContext): Promise<number> => {
   requireSource(context);
@@ -63,7 +68,7 @@ export const purge = async (context: CommandContext): Promise<number> => {
   const skipped: string[] = [];
   for (const row of extracted) {
     const id = idOf(row.contentHash);
-    if (row.domain === undefined || !(await exists(join(context.knowledgeDir, row.domain, `${id}.md`)))) {
+    if (row.domain === undefined || !(await exists(sheetPath(context.knowledgeDir, row.domain, id)))) {
       skipped.push(id);
       context.err(`purge of ${id} skipped: its sheet is missing; extract it again first`);
       continue;
@@ -77,7 +82,11 @@ export const purge = async (context: CommandContext): Promise<number> => {
       failed.push(id);
       context.err(`purge of ${id} failed: ${error instanceof Error ? error.message : String(error)}`);
       // UC5 ext. 3a: the row stays `extracted` with the error. Best effort: the original error is the one reported.
-      if (!context.dryRun) await context.index.upsert({ ...row, error: 'purge failed' }).catch(() => undefined);
+      if (!context.dryRun) {
+        await context.index.upsert({ ...row, error: 'purge failed' }).catch((flagError: unknown) => {
+          context.err(`could not flag ${id}: ${flagError instanceof Error ? flagError.message : String(flagError)}`);
+        });
+      }
     }
   }
   context.out(JSON.stringify({ purged, failed, skipped, dryRun: context.dryRun }));
@@ -101,7 +110,9 @@ const readSheets = async (knowledgeDir: string): Promise<ParsedSheet[]> => {
       if (isMissing(error)) continue;
       throw error;
     }
-    for (const name of names.filter((entry) => /^[0-9a-f]{12}\.md$/.test(entry)).sort()) {
+    const sheetNames = names.filter((entry) => /^[0-9a-f]{12}\.md$/.test(entry));
+    sheetNames.sort((a, b) => a.localeCompare(b));
+    for (const name of sheetNames) {
       const sheet = parseSheet(await readFile(join(knowledgeDir, domain, name), 'utf8'));
       if (sheet !== undefined) sheets.push(sheet);
     }
@@ -109,26 +120,28 @@ const readSheets = async (knowledgeDir: string): Promise<ParsedSheet[]> => {
   return sheets;
 };
 
-/** git never prompts for credentials: a remote that needs them fails instead of blocking the session. */
-const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
+/** git never prompts for credentials, over https or ssh: a remote that needs them fails instead of blocking the session. */
+const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_SSH_COMMAND: 'ssh -o BatchMode=yes' };
+
+/** An unreachable remote fails the fetch after this delay instead of hanging. */
+const GIT_TIMEOUT_MS = 60_000;
 
 const git = async (cwd: string, ...args: string[]): Promise<string> =>
-  (await run('git', ['-C', cwd, ...args], { env: GIT_ENV, maxBuffer: 16 * 1024 * 1024 })).stdout;
+  (await run('git', ['-C', cwd, ...args], { env: GIT_ENV, maxBuffer: 16 * 1024 * 1024, timeout: GIT_TIMEOUT_MS })).stdout;
 
-/** True when `origin/main:<path>` exists; `cat-file -e` fails only for a missing object. */
+/** True when `origin/main:<path>` exists: `ls-tree` prints nothing for a missing path and fails only on a git error, which is thrown. */
 const onMain = async (top: string, path: string): Promise<boolean> =>
-  git(top, 'cat-file', '-e', `origin/main:${path}`).then(
-    () => true,
-    () => false,
-  );
+  (await git(top, 'ls-tree', '--name-only', 'origin/main', '--', path)).trim() !== '';
 
-/** `git show origin/main:<path>`, or undefined when `cat-file -e` finds no such object (origin/main itself is verified first). */
+/** `git show origin/main:<path>`, or undefined when `ls-tree` finds no such path (origin/main itself is verified first). */
 const showOnMain = async (top: string, path: string): Promise<string | undefined> =>
   (await onMain(top, path)) ? git(top, 'show', `origin/main:${path}`) : undefined;
 
 /**
  * `notes --skills-dir DIR` (UC6): fetches `origin` of DIR's repository and reads each target skill's
- * `references/field-notes.md` from `origin/main`, never from a working tree; writes nothing.
+ * `references/field-notes.md` from `origin/main`, never from a working tree. Prints a {@link NotesReport};
+ * the fetch is its only side effect.
+ * @throws UsageError when DIR is not inside a git repository or `origin/main` is missing after the fetch.
  */
 export const notes = async (context: CommandContext, skillsDir: string | undefined): Promise<number> => {
   if (skillsDir === undefined) throw new UsageError('notes needs --skills-dir <dir>');
@@ -156,9 +169,10 @@ export const notes = async (context: CommandContext, skillsDir: string | undefin
     fieldNotes.set(skill, (await showOnMain(top, `${prefix}${skill}/references/field-notes.md`)) ?? '');
     if (!(await onMain(top, `${prefix}${skill}/SKILL.md`))) candidates.push(skill);
   }
+  candidates.sort((a, b) => a.localeCompare(b));
   const report: NotesReport = {
     skills: uncitedNotes(sheets, (skill) => fieldNotes.get(skill) ?? ''),
-    candidates: candidates.sort(),
+    candidates,
   };
   context.out(JSON.stringify(report));
   return EXIT_OK;

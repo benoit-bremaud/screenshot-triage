@@ -18,6 +18,28 @@ export const THUMBNAILS_FOLDER = 'thumbnails';
 /** Where the thumbnail of a capture is written; `extract` reports it when present. */
 export const thumbnailPath = (dataDir: string, id: string): string => join(dataDir, THUMBNAILS_FOLDER, `${id}.jpg`);
 
+/** Where the sheet of a capture is written (ADR-0003 decision 1); `purge` checks it exists before deleting. */
+export const sheetPath = (knowledgeDir: string, domain: string, id: string): string => join(knowledgeDir, domain, `${id}.md`);
+
+/** A file-system error carries an errno `code` (ENOSPC, EACCES); a decode failure from sharp does not. */
+const isSystemError = (error: unknown): boolean => error instanceof Error && typeof (error as NodeJS.ErrnoException).code === 'string';
+
+/**
+ * A thumbnail is a convenience: an undecodable image is reported as `thumbnail: null` and the sheet and
+ * the row still land. A file-system error propagates, so the row stays `triaged` and a re-run retries.
+ */
+const writeThumbnailOf = async (deps: EffectDeps, localName: string, id: string): Promise<void> => {
+  const from = await locateLocal(deps.dataDir, localName);
+  if (from === undefined) throw new Error(`local copy ${localName} not found`);
+  await mkdir(join(deps.dataDir, THUMBNAILS_FOLDER), { recursive: true });
+  try {
+    await writeThumbnail(from, thumbnailPath(deps.dataDir, id));
+  } catch (error) {
+    if (isSystemError(error)) throw error;
+    await rm(thumbnailPath(deps.dataDir, id), { force: true });
+  }
+};
+
 /** Writes through a temporary file, so a crash never leaves a half-written sheet. */
 const writeAtomic = async (path: string, text: string): Promise<void> => {
   const tmp = `${path}.tmp`;
@@ -90,26 +112,14 @@ const run = async (effect: Effect, deps: EffectDeps): Promise<void> => {
       return deps.log.append(effect.line);
     case 'index-write':
       return deps.index.upsert(effect.row);
-    case 'write-sheet': {
-      const folder = join(deps.knowledgeDir, effect.domain);
-      await mkdir(folder, { recursive: true });
-      await writeAtomic(join(folder, `${effect.id}.md`), effect.markdown);
+    case 'write-sheet':
+      await mkdir(join(deps.knowledgeDir, effect.domain), { recursive: true });
+      await writeAtomic(sheetPath(deps.knowledgeDir, effect.domain, effect.id), effect.markdown);
       return;
-    }
-    case 'write-thumbnail': {
-      const from = await locateLocal(deps.dataDir, effect.localName);
-      if (from === undefined) throw new Error(`local copy ${effect.localName} not found`);
-      await mkdir(join(deps.dataDir, THUMBNAILS_FOLDER), { recursive: true });
-      // A thumbnail is a convenience: an undecodable image is reported, the sheet and the row still land.
-      try {
-        await writeThumbnail(from, thumbnailPath(deps.dataDir, effect.id));
-      } catch {
-        await rm(thumbnailPath(deps.dataDir, effect.id), { force: true });
-      }
-      return;
-    }
+    case 'write-thumbnail':
+      return writeThumbnailOf(deps, effect.localName, effect.id);
     case 'remove-sheet':
-      await rm(join(deps.knowledgeDir, effect.domain, `${effect.id}.md`), { force: true });
+      await rm(sheetPath(deps.knowledgeDir, effect.domain, effect.id), { force: true });
       return;
     case 'remove-thumbnail':
       await rm(thumbnailPath(deps.dataDir, effect.id), { force: true });
