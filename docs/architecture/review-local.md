@@ -1,11 +1,11 @@
 # Local review — screenshot-triage (brick 2, #2)
 
-Pre-push review of the triage CLI on a local-directory source, fourteen adversarial rounds, the last eight on the Codex fixes.
+Pre-push review of the triage CLI on a local-directory source, sixteen adversarial rounds, the last ten on the Codex fixes.
 
 - Date: 2026-11-06
-- Commit: 9ad2eeb
+- Commit: 27f276a
 - Scope: branch diff `main...HEAD` (`feat/2-triage-cli-local-source`, 56 files)
-- Checks run: adversarial (Opus, 14 rounds) · design · docs · tests · security · correctness
+- Checks run: adversarial (Opus, 16 rounds) · design · docs · tests · security · correctness
 - Verdict: ship as-is · Must 0 · Should 0 · Nice 5
 
 ## Adversarial review (#236)
@@ -24,15 +24,17 @@ Pre-push review of the triage CLI on a local-directory source, fourteen adversar
 - Round 12 on `d2f9bf3`: fourth Codex review fixed (a capture replaced mid-scan is skipped and counted as `changed`; `Personnel/` and `.trash/` must be real directories) · Should 1 (test for `changed`) fixed in `b196c98` · **Push gate: open**.
 - Round 13 on `1ffcb93`: fifth Codex review fixed (a final record must be a regular file, never a link, before the source copy goes) · **Push gate: open**.
 - Round 14 on `9ad2eeb`: sixth Codex review fixed (only `<id>.<image-ext>` names count as final records) · **Push gate: open**.
-- Hosted reviewers: Copilot not available on this repository · Codex `@codex review` posted on `84372be`, two P2 findings, both fixed in `11f7a4c` and `f008a93`; second review on `167adb4`, one P1 and two P2, fixed in `321831c` and `87ac1b5`; third review on `dc23c57`, one P1 and three P2, fixed in `3aaa240` and `f4c005b`; fourth review on `4f0cb60`, two P2, fixed in `d2f9bf3`; fifth review on `e75f29b`, one P2, fixed in `1ffcb93`; sixth review on `e82c001`, one P2, fixed in `9ad2eeb`.
+- Round 15 on `da15b88`: seventh Codex review fixed (confidence required on a first filing, `read` never follows a link, only regular files count as final records) · Should 1: the branch still shipped a GitHub workflow against the owner rule of 2026-11-07 · **Push gate: open**.
+- Round 16 on `27f276a`: workflow deleted, docs say local CI only, `moveInto` moves only a regular file · **Push gate: open**.
+- Hosted reviewers: Copilot not available on this repository · Codex `@codex review` posted on `84372be`, two P2 findings, both fixed in `11f7a4c` and `f008a93`; second review on `167adb4`, one P1 and two P2, fixed in `321831c` and `87ac1b5`; third review on `dc23c57`, one P1 and three P2, fixed in `3aaa240` and `f4c005b`; fourth review on `4f0cb60`, two P2, fixed in `d2f9bf3`; fifth review on `e75f29b`, one P2, fixed in `1ffcb93`; sixth review on `e82c001`, one P2, fixed in `9ad2eeb`; seventh review on `afe0124`, three P2, fixed in `da15b88`.
 
-## Pre-merge gate (head SHA 9ad2eeb, `--push` mode)
+## Pre-merge gate (head SHA 27f276a, `--push` mode)
 
 | Step | Result |
 |---|---|
-| 0 CI mirror | typecheck → `npm run typecheck` ✅ · lint → `npm run lint` ✅ · test → `npm test` ✅ · gitleaks → `gitleaks git` 8.30.1 (CI pins `GITLEAKS_VERSION: 8.30.1`) ✅ |
-| 1 Tests | ✅ 113 unit and integration tests (vitest), one spawn of the entry point |
-| 2 Coverage | tests 96.25 % stmts / 90.9 % branches / 97.11 % funcs / 97.81 % lines (floor 80) · docs ⏸ deferred to the pre-merge run |
+| 0 Local CI | GitHub Actions dropped (owner rule 2026-11-07, billed) · `npm run check` (typecheck, lint, vitest) ✅ · `gitleaks git` 8.30.1 ✅ |
+| 1 Tests | ✅ 117 unit and integration tests (vitest), one spawn of the entry point |
+| 2 Coverage | tests 96.32 % stmts / 91.06 % branches / 97.16 % funcs / 97.84 % lines (floor 80) · docs ⏸ deferred to the pre-merge run |
 | 3 SonarQube | ⚠️ not run: no SonarQube project for this repository |
 | 4 Secrets | ✅ gitleaks clean (`--all`) · only `.env.example` tracked · diff read: nothing sensitive |
 | 5 E2E/smoke | ⏸ deferred to the pre-merge run (a CLI: the in-process tests drive every command) |
@@ -63,4 +65,4 @@ _None._ CodeQL, dependency review and a weekly gitleaks run are deferred by the 
 
 ## Per-dimension summary
 
-- Adversarial: fourteen rounds, eleven Must fixed, gate open. · Design: functional core and dependency rule held, `src/fs.ts` dedupes the file-system helpers. · Docs: conception, README and CLAUDE.md match the port contract. · Tests: table-driven transition matrix, adapter and CLI hardening suites. · Security: labels only in the public log, ids only on argv, source pinned. · Correctness: every crash and re-run path is idempotent.
+- Adversarial: sixteen rounds, eleven Must fixed, gate open. · Design: functional core and dependency rule held, `src/fs.ts` dedupes the file-system helpers. · Docs: conception, README and CLAUDE.md match the port contract. · Tests: table-driven transition matrix, adapter and CLI hardening suites. · Security: labels only in the public log, ids only on argv, source pinned. · Correctness: every crash and re-run path is idempotent.
