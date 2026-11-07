@@ -99,7 +99,7 @@ flowchart LR
 
 **Extensions**
 
-- 2a. Owner refuses or postpones: nothing changes; a sheet can be corrected with UC4 ext. 5b.
+- 2a. Owner refuses or postpones: nothing changes; a sheet can be corrected with UC4 ext. 5c.
 - 3a. A source call fails: the original's row stays `extracted` with the error, the purge continues, a re-run completes it, duplicates included (a ref already gone and a missing local file are no-ops).
 
 **Business rules**: REQ-3, REQ-6, REQ-14.
@@ -109,7 +109,7 @@ flowchart LR
 - **Level**: user goal
 - **Primary actor**: Owner
 - **Preconditions**: sheets on `main` of this repository hold rules whose citation `<id>#<n>` is absent from their target skill's field notes; no `docs(field-notes):` PR is open in `~/.claude`.
-- **Success guarantee**: one PR in `~/.claude` appends the new rules to each target skill's `references/field-notes.md`, split into adopted and to confirm, each citing `<id>#<n>` with its sheet URL, and lists the new-skill candidates.
+- **Success guarantee**: one PR in `~/.claude` appends the new rules to each target skill's `references/field-notes.md`, split into `adopted` and `to-confirm`, each citing `<id>#<n>` with its sheet URL, and lists the new-skill candidates.
 - **Trigger**: the owner asks `/screenshots` to enrich the skills, usually after a purge.
 
 **Main success scenario**
@@ -122,7 +122,7 @@ flowchart LR
 **Extensions**
 
 - 1a. Nothing is uncited: system reports it; end.
-- 3a. Owner drops a rule: it is left out of the PR and stays uncited (citations are per rule), so `notes` proposes it again until the owner corrects the sheet before the purge or accepts it.
+- 3a. Owner drops a rule: it is left out of the PR and stays uncited (citations are per rule), so `notes` proposes it again; to dismiss it for good, the owner removes it from the sheet by hand in a PR of this repository (the later rules keep their rank, a removed rank is never reused).
 
 **Business rules**: REQ-15, NFR-4.
 

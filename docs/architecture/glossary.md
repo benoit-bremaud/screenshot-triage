@@ -4,8 +4,8 @@ Every domain term used in the diagrams, defined once. Alphabetical, English head
 
 | Term | Definition | Source |
 |---|---|---|
-| Answer | The owner's reply to a doubtful capture: `work` (keep as dev or design watch), `personal`, or `delete` (also the right answer for confidential work content, since a `work` filing is published). | `01-use-case.md` UC2 |
-| Batch | One run of `scan` and the filings that follow it in the same session; doubtful captures are held and asked after the batch. | `02-sequence-triage-batch.md` |
+| Answer | The owner's reply to a doubtful capture, or to a triaged one for `personal` and `delete` (REQ-16): `work` (keep as dev or design watch), `personal`, or `delete` (also the right answer for confidential work content, since a `work` filing is published). | `01-use-case.md` UC2 |
+| Batch | One run of `scan` and the filings that follow it in the same session, doubtful captures asked after it; in brick 4, the extractions and the purge that follow, then one enrichment PR. | `02-sequence-triage-batch.md` |
 | Capture | One screenshot taken on the phone; identified by its ref, deduplicated by its content hash; has one status. | ADR-0001 |
 | Capture source | The place captures come from: a local directory (brick 2) or the Immich server (brick 3); the `CaptureSource` port in code. | `03-component.md` |
 | Confidence | The model's self-assessed probability, 0 to 1, that the domain is right; stored in the decision log. | ADR-0002 |
@@ -30,13 +30,13 @@ Every domain term used in the diagrams, defined once. Alphabetical, English head
 | Purge | The `purge` command (brick 4): deletes the local file and trashes the source asset once a capture is `extracted`, or for a duplicate whose original it purged. | ADR-0001 decision 7 |
 | Reasoning | Two to three sentences from the model justifying a domain or a doubt; untrusted text, stored in the private index only, never in the versioned log, never interpreted. | ADR-0002 |
 | Ref | The identifier of a capture at its source and the index row key: a path relative to the local directory, or the Immich asset id. Never written to the versioned log, never passed on argv (see Id). | `03-component.md` |
-| Rule | One actionable statement of a sheet, cited `<id>#<n>`, of kind `technical` (status `verified`, `contradicted`, `not-found`) or `design` (`consistent`, `in-tension`); adopted when verified or consistent, to confirm otherwise. | ADR-0001 decision 9 |
+| Rule | One actionable statement of a sheet, cited `<id>#<n>`, of kind `technical` (status `verified`, `contradicted`, `not-found`) or `design` (`consistent`, `in-tension`); `adopted` when verified or consistent, `to-confirm` otherwise. | ADR-0001 decision 9 |
 | Sheet | The Markdown extraction of a capture, `knowledge/<domain>/<id>.md`, rendered by the CLI from a sheet payload; its existence moves the capture to `extracted` and allows the purge. | ADR-0001 decision 8, ADR-0003 |
 | Sheet payload | The JSON object `extract` reads on stdin: prompt version, model, title, summary, rules, justification, target skill, handle, gem (domain and tags come from the index row). | ADR-0003 |
-| Skill `/screenshots` | The Claude Code skill in `~/.claude` that drives a triage conversation and calls the CLI. | ADR-0001 decision 1 |
+| Skill `/screenshots` | The Claude Code skill in `~/.claude` that drives a triage conversation and calls the CLI. It also drives extraction, purge and the enrichment PR (brick 4). | ADR-0001 decision 1 |
 | Status | The lifecycle value of a capture: `inbox`, `duplicate`, `triaged`, `doubtful`, `personal`, `deleted`, `extracted` (`05-state-capture.md`). | `05-state-capture.md` |
 | Tag | Free kebab-case English keyword on a capture, reused before created. | ADR-0001 § Taxonomy |
 | Target skill | The skill of `~/.claude` a sheet's rules are meant for, kebab-case name. | ADR-0001 decision 6 |
 | Thumbnail | 800 px JPEG kept under `data/` for a design gem; never versioned. | ADR-0001 decision 7 |
-| Uncited | A rule whose citation `<id>#<n>` appears in no field notes of its target skill on `main`; what `notes` proposes. | ADR-0003 decision 3 |
-| Vision model | The Claude Code session running `/screenshots`, which classifies captures (ADR-0002); drawn as a supporting actor. | ADR-0002 |
+| Uncited | A rule whose citation `<id>#<n>` appears in no field notes of its target skill on `origin/main`; what `notes` proposes. | ADR-0003 decision 3 |
+| Vision model | The Claude Code session running `/screenshots`, which classifies captures (ADR-0002); drawn as a supporting actor. In brick 4 it also writes the sheet payload and verifies the rules. | ADR-0002 |

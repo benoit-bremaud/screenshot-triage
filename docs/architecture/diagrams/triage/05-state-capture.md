@@ -27,7 +27,7 @@ stateDiagram-v2
   Doubtful --> Deleted: resolve(delete) / delete local file, source.trash (duplicates too)
   Triaged --> Extracted: extract(sheet) / write sheet, thumbnail if design gem
   Extracted --> Deleted: purge / duplicates first, then delete local file, source.trash
-  Triaged --> Personal: resolve(personal) / delete local file, source.markPersonal (duplicates too)
+  Triaged --> Personal: resolve(personal) / delete local file, source.markPersonal (duplicates too), clear reasoning
   Triaged --> Deleted: resolve(delete) / delete local file, source.trash (duplicates too)
   Duplicate --> Personal: resolve(personal) on the original / source.markPersonal
   Duplicate --> Deleted: resolve(delete) on the original / source.trash

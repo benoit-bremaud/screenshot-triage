@@ -25,7 +25,7 @@ sequenceDiagram
     Skill-->>Owner: merge or close it first, end
   else none
     Skill->>CLI: notes --skills-dir ~/.claude/skills
-    CLI->>Claude: git show main:skills/SKILL/references/field-notes.md
+    CLI->>Claude: git fetch, git show origin/main:skills/SKILL/references/field-notes.md
     CLI->>CLI: read knowledge/*/*.md, keep the rules whose ID#N is not cited, render them escaped
     CLI-->>Skill: per skill: adopted and to-confirm items (rendered Markdown), candidates
     alt nothing uncited

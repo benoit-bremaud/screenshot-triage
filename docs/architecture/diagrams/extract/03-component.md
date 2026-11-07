@@ -17,7 +17,7 @@ title: cmp — Extract (component level)
 flowchart LR
   subgraph Claude ["Claude Code (owner configuration)"]
     Skill["/screenshots skill"]
-    Notes[("skills/SKILL/references/field-notes.md (main)")]
+    Notes[("skills/SKILL/references/field-notes.md (origin/main)")]
   end
   subgraph Repo ["screenshot-triage (Node CLI)"]
     Cmd["src/commands/extract.ts<br/>extract · purge · notes"]
@@ -35,7 +35,7 @@ flowchart LR
     Effects --> Port
   end
   Skill -.->|"runtime: child process, JSON on stdin and stdout"| Cmd
-  Cmd -.->|"runtime: git show main:, read only"| Notes
+  Cmd -.->|"runtime: git fetch and show origin/main:, read only"| Notes
   Effects -.->|"runtime: write"| Sheets[("knowledge/DOMAIN/ID.md")]
   Thumb -.->|"runtime: write"| Thumbs[("data/thumbnails/ID.jpg")]
 ```

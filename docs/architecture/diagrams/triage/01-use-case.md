@@ -115,6 +115,6 @@ flowchart LR
 
 ## Notes
 
-- UC1 never deletes on its own judgement: a file is removed by a UC2 effect (owner answer, which also settles the duplicates), by a brick 4 effect (the purge after the sheet, or a duplicate whose original it purged), or by ext. 2a, which only applies an earlier personal or delete answer to a returning copy. Reviewers should check that no other step of UC1 removes a file, and that `scan --dry-run` covers 2a (REQ-6).
+- UC1 never deletes on its own judgement: a file is removed by a UC2 effect (owner answer, which also settles the duplicates), by a brick 4 effect (the purge after the sheet, or a duplicate whose original it purged), by an owner answer on a triaged capture (UC4 ext. 3b, REQ-16), or by ext. 2a, which only applies an earlier personal or delete answer to a returning copy. Reviewers should check that no other step of UC1 removes a file, and that `scan --dry-run` covers 2a (REQ-6).
 - "Receive the doubt question" is not a use case; the owner's goal is UC2.
 - Open question for brick 3: whether a personal answer also removes the asset from the Screenshots album (the album move may suffice).
