@@ -24,6 +24,9 @@ describe('sheet payload schema (T-17)', () => {
     ['a control character', { title: 'bell\u0007' }],
     ['a bidi override', { justification: 'abc‮def' }],
     ['a newline in a title', { title: 'one\ntwo' }],
+    ['a Unicode tag character', rule({ text: 'Use flexbox\u{E0041}\u{E0042}' })],
+    ['a zero-width space', { title: 'zero​width' }],
+    ['a byte-order mark in the summary', { summary: 'line one\n﻿line two' }],
     ['http evidence', rule({ evidence: 'http://example.com' })],
     ['a backtick in the evidence', rule({ evidence: 'https://example.com/`x`' })],
     ['an angle bracket in the evidence', rule({ evidence: 'https://example.com/<x>' })],
@@ -55,6 +58,10 @@ describe('untrusted text renders inert (T-21) and round-trips through notes (T-2
     expect(sheet).not.toMatch(/<script>|<b>|\]\(|!\[|```|\*\*|^=+$|https:\/\/evil|www\.evil/m);
     expect(sheet).toContain('# \\# Heading &lt;b&gt;');
     expect(sheet).toContain('\\| table \\| row \\|');
+  });
+
+  it('escapes math delimiters', () => {
+    expect(escapeMarkdown('$x^2$')).toBe('\\$x\\^2\\$');
   });
 
   it('escape and unescape are inverse', () => {

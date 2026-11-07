@@ -90,6 +90,30 @@ describe('UC6 notes (T-20)', () => {
     expect(report.skills[0]?.skill).toBe('motion-design');
   });
 
+  it('an evidence URL ending in <id>#<n> cites no other rule', async () => {
+    const id = await triagedCapture(ws, 'a.png', png('a'));
+    await extractRun(ws, id, { rules: nineRules.slice(0, 2) });
+    const { clone } = await skillsRepo(ws, `- [${id}#1] cited — evidence \`https://example.com/${id}#2\`\n`);
+
+    const report = (await ws.run(['notes', '--skills-dir', join(clone, 'skills')])).json<NotesReport>();
+
+    expect(report.skills[0]?.adopted.map(rankOf)).toEqual(['2']);
+  });
+
+  it('refuses a skills repository without origin/main', async () => {
+    const id = await triagedCapture(ws, 'a.png', png('a'));
+    await extractRun(ws, id);
+    const { clone } = await skillsRepo(ws, '');
+    git(ws.root, 'init', '--quiet', '--bare', join(ws.root, 'empty.git'));
+    git(clone, 'remote', 'set-url', 'origin', join(ws.root, 'empty.git'));
+    git(clone, 'update-ref', '-d', 'refs/remotes/origin/main');
+
+    const run = await ws.run(['notes', '--skills-dir', join(clone, 'skills')]);
+
+    expect(run.code).toBe(2);
+    expect(run.err.join('\n')).toContain('no origin/main');
+  });
+
   it('refuses a skills dir outside a git repository, and a missing flag', async () => {
     expect((await ws.run(['notes', '--skills-dir', ws.root])).code).toBe(2);
     expect((await ws.run(['notes'])).code).toBe(2);

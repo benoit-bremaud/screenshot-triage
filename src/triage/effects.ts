@@ -16,7 +16,8 @@ export type Effect =
   | { readonly kind: 'index-write'; readonly row: CaptureRow }
   | { readonly kind: 'write-sheet'; readonly id: string; readonly domain: Domain; readonly markdown: string }
   | { readonly kind: 'write-thumbnail'; readonly id: string; readonly localName: string }
-  | { readonly kind: 'remove-thumbnail'; readonly id: string };
+  | { readonly kind: 'remove-thumbnail'; readonly id: string }
+  | { readonly kind: 'remove-sheet'; readonly id: string; readonly domain: Domain };
 
 /** One line per effect for `--dry-run`: ids only, never a ref (REQ-5, REQ-9). */
 export const describeEffect = (effect: Effect): string => {
@@ -39,6 +40,8 @@ export const describeEffect = (effect: Effect): string => {
       return `write sheet knowledge/${effect.domain}/${effect.id}.md`;
     case 'write-thumbnail':
       return `write thumbnail data/thumbnails/${effect.id}.jpg`;
+    case 'remove-sheet':
+      return `remove sheet knowledge/${effect.domain}/${effect.id}.md if present`;
     case 'remove-thumbnail':
       return `remove thumbnail data/thumbnails/${effect.id}.jpg if present`;
   }

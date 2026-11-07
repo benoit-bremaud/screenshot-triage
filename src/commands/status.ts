@@ -89,7 +89,8 @@ export const status = async (context: CommandContext, json: boolean): Promise<nu
   context.out(`domains: ${format(report.byDomain)}`);
   context.out(`doubtful: ${String(report.doubtful.length)} awaiting an answer`);
   for (const item of report.doubtful) context.out(`  ${item.id} ${item.category ?? ''}`);
-  context.out(`triaged: ${String(report.triaged.length)} to extract`);
+  const toExtract = report.triaged.filter((item) => item.domain !== 'other').length;
+  context.out(`triaged: ${String(report.triaged.length)} (${String(toExtract)} to extract, other excluded)`);
   for (const item of report.triaged) context.out(`  ${item.id} ${item.domain ?? ''} ${item.tags.join(',')}`);
   context.out('tags:');
   for (const tag of report.tags) {

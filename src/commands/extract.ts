@@ -4,15 +4,15 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { z } from 'zod';
 
-import { runEffects } from '../effects.js';
-import { isMissing } from '../fs.js';
+import { runEffects, thumbnailPath } from '../effects.js';
+import { exists, isMissing } from '../fs.js';
 import { uncitedNotes, type SkillNotes } from '../extract/notes.js';
 import { SheetPayloadSchema } from '../extract/payload.js';
 import { parseSheet, renderSheet, type ParsedSheet } from '../extract/render.js';
 import { idOf } from '../triage/capture.js';
 import { DOMAINS } from '../triage/domains.js';
 import { transition } from '../triage/transition.js';
-import { EXIT_OK, reportRejection, requireSource, rowForId, UsageError, type CommandContext } from './context.js';
+import { EXIT_INTERNAL, EXIT_OK, reportRejection, requireSource, rowForId, UsageError, type CommandContext } from './context.js';
 
 const run = promisify(execFile);
 
@@ -34,32 +34,54 @@ export const extract = async (context: CommandContext, id: string | undefined, s
   if (!result.ok) return reportRejection(context, result);
   await runEffects(result.effects, context);
   const sheetPath = join(context.knowledgeDir, row?.domain ?? '', `${id ?? ''}.md`);
-  context.out(JSON.stringify({ id, status: context.dryRun ? row?.status : result.next, sheet: sheetPath, dryRun: context.dryRun }));
+  // A gem without thumbnail (HEIC, undecodable image) is reported as null (ADR-0003 § Thumbnails).
+  const wantsThumbnail = result.effects.some((effect) => effect.kind === 'write-thumbnail');
+  const thumbnail = thumbnailPath(context.dataDir, id ?? '');
+  context.out(
+    JSON.stringify({
+      id,
+      status: context.dryRun ? row?.status : result.next,
+      sheet: sheetPath,
+      thumbnail: wantsThumbnail && (context.dryRun || (await exists(thumbnail))) ? thumbnail : null,
+      ...(sheet.gem === true && !wantsThumbnail ? { gemWithoutThumbnail: true } : {}),
+      dryRun: context.dryRun,
+    }),
+  );
   return EXIT_OK;
 };
 
 /**
- * `purge [--dry-run]` (UC5, REQ-14): every extracted capture and its duplicates become `deleted`. A failed
- * capture is reported and the purge goes on; its row stays `extracted`, so a re-run completes it.
+ * `purge [--dry-run]` (UC5, REQ-14): every extracted capture whose sheet exists, and its duplicates, become
+ * `deleted`. A capture without its sheet is skipped (deletion only after a sheet, CLAUDE.md); a failed one is
+ * reported, keeps `extracted` with an error flag, and the purge goes on; a re-run completes it. Exit 3 when any failed.
  */
 export const purge = async (context: CommandContext): Promise<number> => {
   requireSource(context);
   const extracted = context.index.all().filter((row) => row.status === 'extracted');
   let purged = 0;
   const failed: string[] = [];
+  const skipped: string[] = [];
   for (const row of extracted) {
+    const id = idOf(row.contentHash);
+    if (row.domain === undefined || !(await exists(join(context.knowledgeDir, row.domain, `${id}.md`)))) {
+      skipped.push(id);
+      context.err(`purge of ${id} skipped: its sheet is missing; extract it again first`);
+      continue;
+    }
     const result = transition(row, { type: 'purge', duplicates: context.index.duplicatesOf(row.ref) });
     if (!result.ok) continue;
     try {
       await runEffects(result.effects, context);
       purged += 1;
     } catch (error) {
-      failed.push(idOf(row.contentHash));
-      context.err(`purge of ${idOf(row.contentHash)} failed: ${error instanceof Error ? error.message : String(error)}`);
+      failed.push(id);
+      context.err(`purge of ${id} failed: ${error instanceof Error ? error.message : String(error)}`);
+      // UC5 ext. 3a: the row stays `extracted` with the error. Best effort: the original error is the one reported.
+      if (!context.dryRun) await context.index.upsert({ ...row, error: 'purge failed' }).catch(() => undefined);
     }
   }
-  context.out(JSON.stringify({ purged, failed, dryRun: context.dryRun }));
-  return EXIT_OK;
+  context.out(JSON.stringify({ purged, failed, skipped, dryRun: context.dryRun }));
+  return failed.length > 0 ? EXIT_INTERNAL : EXIT_OK;
 };
 
 /** The `notes` report (REQ-15): uncited rules per target skill, and the target skills that do not exist yet. */
@@ -87,14 +109,22 @@ const readSheets = async (knowledgeDir: string): Promise<ParsedSheet[]> => {
   return sheets;
 };
 
-/** `git show origin/main:<path>`, or undefined when the path does not exist there. */
-const showOnMain = async (top: string, path: string): Promise<string | undefined> => {
-  try {
-    return (await run('git', ['-C', top, 'show', `origin/main:${path}`], { maxBuffer: 16 * 1024 * 1024 })).stdout;
-  } catch {
-    return undefined;
-  }
-};
+/** git never prompts for credentials: a remote that needs them fails instead of blocking the session. */
+const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
+
+const git = async (cwd: string, ...args: string[]): Promise<string> =>
+  (await run('git', ['-C', cwd, ...args], { env: GIT_ENV, maxBuffer: 16 * 1024 * 1024 })).stdout;
+
+/** True when `origin/main:<path>` exists; `cat-file -e` fails only for a missing object. */
+const onMain = async (top: string, path: string): Promise<boolean> =>
+  git(top, 'cat-file', '-e', `origin/main:${path}`).then(
+    () => true,
+    () => false,
+  );
+
+/** `git show origin/main:<path>`, or undefined when the path does not exist there; any other git error is thrown. */
+const showOnMain = async (top: string, path: string): Promise<string | undefined> =>
+  (await onMain(top, path)) ? git(top, 'show', `origin/main:${path}`) : undefined;
 
 /**
  * `notes --skills-dir DIR` (UC6): fetches `origin` of DIR's repository and reads each target skill's
@@ -102,17 +132,21 @@ const showOnMain = async (top: string, path: string): Promise<string | undefined
  */
 export const notes = async (context: CommandContext, skillsDir: string | undefined): Promise<number> => {
   if (skillsDir === undefined) throw new UsageError('notes needs --skills-dir <dir>');
-  const git = async (...args: string[]): Promise<string> =>
-    (await run('git', ['-C', skillsDir, ...args])).stdout.trim();
   let top: string;
   let prefix: string;
   try {
-    top = await git('rev-parse', '--show-toplevel');
-    prefix = await git('rev-parse', '--show-prefix');
+    top = (await git(skillsDir, 'rev-parse', '--show-toplevel')).trim();
+    prefix = (await git(skillsDir, 'rev-parse', '--show-prefix')).trim();
   } catch {
     throw new UsageError('--skills-dir must sit inside a git repository');
   }
-  await git('fetch', '--quiet', 'origin');
+  await git(top, 'fetch', '--quiet', 'origin');
+  // Without origin/main every rule would look uncited and every skill new: refuse instead.
+  try {
+    await git(top, 'rev-parse', '--verify', '--quiet', 'origin/main^{commit}');
+  } catch {
+    throw new UsageError('the skills repository has no origin/main after the fetch');
+  }
   const sheets = await readSheets(context.knowledgeDir);
   // Target skills are kebab-case (checked by `parseSheet`), so they never escape the skills folder.
   const skills = [...new Set(sheets.map((sheet) => sheet.targetSkill))];
@@ -120,7 +154,7 @@ export const notes = async (context: CommandContext, skillsDir: string | undefin
   const candidates: string[] = [];
   for (const skill of skills) {
     fieldNotes.set(skill, (await showOnMain(top, `${prefix}${skill}/references/field-notes.md`)) ?? '');
-    if ((await showOnMain(top, `${prefix}${skill}/SKILL.md`)) === undefined) candidates.push(skill);
+    if (!(await onMain(top, `${prefix}${skill}/SKILL.md`))) candidates.push(skill);
   }
   const report: NotesReport = {
     skills: uncitedNotes(sheets, (skill) => fieldNotes.get(skill) ?? ''),

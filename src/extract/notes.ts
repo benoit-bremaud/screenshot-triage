@@ -8,9 +8,12 @@ export const SHEETS_BASE_URL = 'https://github.com/benoit-bremaud/screenshot-tri
 export const sheetUrl = (sheet: Pick<ParsedSheet, 'domain' | 'id'>): string =>
   `${SHEETS_BASE_URL}/${sheet.domain}/${sheet.id}.md`;
 
-/** True when `<id>#<rank>` appears as a whole token: `#1` is not cited by `#10`, nor by a longer hex id. */
+/**
+ * True when a field-notes item opens with the token `[<id>#<rank>]`: `#1` is not cited by `#10`, and an
+ * evidence URL ending in `<id>#<n>` inside another item cites nothing.
+ */
 export const isCited = (rule: Pick<ParsedRule, 'id' | 'rank'>, fieldNotes: string): boolean =>
-  new RegExp(`(?<![0-9a-f])${rule.id}#${String(rule.rank)}(?![0-9])`).test(fieldNotes);
+  new RegExp(`^- \\[${rule.id}#${String(rule.rank)}\\]`, 'm').test(fieldNotes);
 
 /** The uncited rules of one target skill, rendered as escaped items, split by status (REQ-15). */
 export interface SkillNotes {

@@ -3,8 +3,11 @@ import { z } from 'zod';
 import { token } from '../triage/decision.js';
 import { isKebabCase } from '../triage/tags.js';
 
-/** Text derived from a screenshot is untrusted (NFR-4): control, bidi and line-separator characters are refused. */
-const FORBIDDEN = /[\u0000-\u0009\u000B-\u001F\u007F-\u009F\u200E\u200F\u2028\u2029\u202A-\u202E\u2066-\u2069]/;
+/**
+ * Text derived from a screenshot is untrusted (NFR-4): control, format (bidi, zero-width, tag characters),
+ * private-use and unassigned code points and line separators are refused, so nothing hides from the owner's review.
+ */
+const FORBIDDEN = /[\p{Cc}\p{Cf}\p{Co}\p{Cn}\u2028\u2029]/u;
 
 const line = (max: number) =>
   z
@@ -12,13 +15,13 @@ const line = (max: number) =>
     .trim()
     .min(1)
     .max(max)
-    .refine((text) => !FORBIDDEN.test(text) && !text.includes('\n'), 'One line, no control character');
+    .refine((text) => !FORBIDDEN.test(text), 'One line, no control or invisible character');
 
-/** At most 3 non-empty lines, each trimmed (ADR-0003 \u00A7 Consequences). */
+/** At most 3 non-empty lines, each trimmed (ADR-0003 consequences). */
 const summary = z
   .string()
   .max(600)
-  .refine((text) => !FORBIDDEN.test(text), 'No control character')
+  .refine((text) => !FORBIDDEN.test(text.replaceAll('\n', '')), 'No control or invisible character')
   .transform((text) => text.split('\n').map((part) => part.trim()).filter((part) => part !== ''))
   .refine((lines) => lines.length >= 1 && lines.length <= 3, 'A summary holds 1 to 3 lines');
 

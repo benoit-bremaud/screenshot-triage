@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { StatusReport } from '../src/commands/status.js';
-import { png, triagedCapture, Workspace } from './helpers.js';
+import { extractRun, png, triagedCapture, Workspace } from './helpers.js';
 
 describe('triaged captures: resolve (T-22) and status (T-23)', () => {
   let ws: Workspace;
@@ -35,6 +35,27 @@ describe('triaged captures: resolve (T-22) and status (T-23)', () => {
     expect(await ws.list('source', '.trash')).toEqual([`${id}.png`]);
   });
 
+  it('T-22: a sheet left by a crashed extract is removed by resolve personal', async () => {
+    const id = await triagedCapture(ws, 'a.png', png('a'), 'design');
+    await extractRun(ws, id);
+    // Crash after write-sheet, before the row: the sheet exists, the row is still triaged.
+    await ws.rewriteIndex((row) => ({ ...row, status: 'triaged' }));
+
+    expect((await ws.resolve(id, 'personal')).code).toBe(0);
+    expect(await ws.list('knowledge', 'design')).toEqual([]);
+  });
+
+  it('T-22: an owner correction removes a crashed sheet from the old domain', async () => {
+    const id = await triagedCapture(ws, 'a.png', png('a'));
+    await extractRun(ws, id);
+    await ws.rewriteIndex((row) => ({ ...row, status: 'triaged' }));
+
+    const run = await ws.file(id, { domain: 'backend', model: 'owner', confidence: undefined });
+
+    expect(run.code).toBe(0);
+    expect(await ws.list('knowledge', 'frontend')).toEqual([]);
+  });
+
   it('T-23: status lists the triaged captures with path, domain and tags', async () => {
     const id = await triagedCapture(ws, 'a.png', png('a'), 'design');
 
@@ -44,6 +65,6 @@ describe('triaged captures: resolve (T-22) and status (T-23)', () => {
     expect(json.triaged).toEqual([
       { id, path: expect.stringContaining(`design/${id}.png`), domain: 'design', tags: ['react', 'hooks'] },
     ]);
-    expect(text.out).toContain('triaged: 1 to extract');
+    expect(text.out).toContain('triaged: 1 (1 to extract, other excluded)');
   });
 });

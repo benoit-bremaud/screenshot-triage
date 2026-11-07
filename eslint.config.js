@@ -26,7 +26,7 @@ const pureTriageCore = {
         paths: [{ name: '@immich/sdk', message: 'Only src/sources/ imports the Immich SDK.' }],
         patterns: [
           {
-            group: ['../store/**', '../effects', '../effects.js', '../fs', '../fs.js', '../sources/**', '../commands/**', '../cli.js', 'node:fs', 'node:fs/*', '@immich/sdk/*'],
+            group: ['../store/**', '../effects', '../effects.js', '../fs', '../fs.js', '../sources/**', '../commands/**', '../cli.js', 'node:fs', 'node:fs/*', 'fs', 'fs/*', '@immich/sdk/*'],
             message: 'src/triage/ imports nothing from store, effects, sources, commands or the file system.',
           },
         ],
@@ -48,7 +48,7 @@ const pureExtractCore = {
         ],
         patterns: [
           {
-            group: ['../store/**', '../sources/**', '../effects', '../effects.js', '../fs', '../fs.js', '../thumbnail', '../thumbnail.js', '../commands/**', '../cli.js', 'node:fs', 'node:fs/*', 'sharp/*', '@immich/sdk/*'],
+            group: ['../store/**', '../sources/**', '../effects', '../effects.js', '../fs', '../fs.js', '../thumbnail', '../thumbnail.js', '../commands/**', '../cli.js', 'node:fs', 'node:fs/*', 'fs', 'fs/*', 'node:child_process', 'child_process', 'sharp/*', '@immich/sdk/*'],
             message: 'src/extract/ imports nothing from store, sources, effects, commands, the file system or sharp.',
           },
         ],

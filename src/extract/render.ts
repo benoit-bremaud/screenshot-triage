@@ -3,11 +3,12 @@ import { RULE_STATUSES, type RuleKind, type RuleStatus, type SheetPayload } from
 
 /**
  * Markdown punctuation that could open a link, an image, a heading, emphasis, a table, a fenced block or an
- * autolink (`:` and `.` break `https://` and `www.` autolinks, `@` an email one); `&`, `<` and `>` become entities.
+ * autolink (`:` and `.` break `https://` and `www.` autolinks, `@` an email one) or math (`$`, `^`); `&`, `<` and
+ * `>` become entities.
  */
-const SPECIAL = /[\\`*_{}[\]()#+\-.!|~:@=]|[&<>]/g;
+const SPECIAL = /[\\`*_{}[\]()#+\-.!|~:@=$^]|[&<>]/g;
 const ENTITIES: Readonly<Record<string, string>> = { '&': '&amp;', '<': '&lt;', '>': '&gt;' };
-const ESCAPED = /\\([\\`*_{}[\]()#+\-.!|~:@=])|&(amp|lt|gt);/g;
+const ESCAPED = /\\([\\`*_{}[\]()#+\-.!|~:@=$^])|&(amp|lt|gt);/g;
 const DECODED: Readonly<Record<string, string>> = { amp: '&', lt: '<', gt: '>' };
 
 /** Renders untrusted text as inert Markdown: every special character escaped, HTML as entities (NFR-4). */

@@ -149,6 +149,8 @@ const file = (capture: CaptureRow | undefined, decision: FileDecision, timestamp
     reasoning: decision.reasoning,
   };
   return ok('triaged', [
+    // A sheet left by a crashed `extract` would stay published under the old domain (ADR-0003 decision 1).
+    ...(correction ? sheetCleanup(capture) : []),
     { kind: 'move-to-domain', localName: localName(capture), domain: decision.domain },
     { kind: 'log-append', line },
     { kind: 'index-write', row },
@@ -181,6 +183,8 @@ const resolve = (capture: CaptureRow | undefined, answer: Answer, duplicates: re
   const sourceKind = answer === 'personal' ? 'source-mark-personal' : 'source-trash';
   // The primary row is written last: while it is still doubtful, a failed duplicate leaves a re-runnable `resolve`.
   const effects: Effect[] = [
+    // A triaged capture may hold a sheet from a crashed `extract`: it never stays published (UC4 ext. 3b).
+    ...(capture.status === 'triaged' ? sheetCleanup(capture) : []),
     { kind: 'delete-local', localName: localName(capture) },
     { kind: sourceKind, ref: capture.ref, target: targetOf(capture) },
   ];
@@ -192,6 +196,17 @@ const resolve = (capture: CaptureRow | undefined, answer: Answer, duplicates: re
   }
   effects.push({ kind: 'index-write', row: withoutPrivateText({ ...capture, status: next, doubtAnswer: answer }) });
   return ok(next, effects);
+};
+
+/** Removes a sheet and thumbnail a crashed `extract` may have left; both are no-ops when absent. */
+const sheetCleanup = (capture: CaptureRow): Effect[] => {
+  const id = idOf(capture.contentHash);
+  return capture.domain === undefined
+    ? []
+    : [
+        { kind: 'remove-sheet', id, domain: capture.domain },
+        { kind: 'remove-thumbnail', id },
+      ];
 };
 
 /** Image types the prebuilt `sharp` binaries decode; a HEIC gem gets no thumbnail (ADR-0003 § Thumbnails). */
@@ -228,10 +243,11 @@ const purge = (capture: CaptureRow | undefined, duplicates: readonly CaptureRow[
       { kind: 'index-write', row: { ...duplicate, status: 'deleted' } },
     );
   }
+  const { error: _error, ...kept } = capture;
   effects.push(
     { kind: 'delete-local', localName: localName(capture) },
     { kind: 'source-trash', ref: capture.ref, target: targetOf(capture) },
-    { kind: 'index-write', row: { ...capture, status: 'deleted' } },
+    { kind: 'index-write', row: { ...kept, status: 'deleted' } },
   );
   return ok('deleted', effects);
 };

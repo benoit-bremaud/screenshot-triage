@@ -15,7 +15,8 @@ export const INBOX_FOLDER = 'inbox';
 /** Where design gem thumbnails go, under `data/` (git-ignored, NFR-1). */
 export const THUMBNAILS_FOLDER = 'thumbnails';
 
-const thumbnailPath = (dataDir: string, id: string): string => join(dataDir, THUMBNAILS_FOLDER, `${id}.jpg`);
+/** Where the thumbnail of a capture is written; `extract` reports it when present. */
+export const thumbnailPath = (dataDir: string, id: string): string => join(dataDir, THUMBNAILS_FOLDER, `${id}.jpg`);
 
 /** Writes through a temporary file, so a crash never leaves a half-written sheet. */
 const writeAtomic = async (path: string, text: string): Promise<void> => {
@@ -99,9 +100,17 @@ const run = async (effect: Effect, deps: EffectDeps): Promise<void> => {
       const from = await locateLocal(deps.dataDir, effect.localName);
       if (from === undefined) throw new Error(`local copy ${effect.localName} not found`);
       await mkdir(join(deps.dataDir, THUMBNAILS_FOLDER), { recursive: true });
-      await writeThumbnail(from, thumbnailPath(deps.dataDir, effect.id));
+      // A thumbnail is a convenience: an undecodable image is reported, the sheet and the row still land.
+      try {
+        await writeThumbnail(from, thumbnailPath(deps.dataDir, effect.id));
+      } catch {
+        await rm(thumbnailPath(deps.dataDir, effect.id), { force: true });
+      }
       return;
     }
+    case 'remove-sheet':
+      await rm(join(deps.knowledgeDir, effect.domain, `${effect.id}.md`), { force: true });
+      return;
     case 'remove-thumbnail':
       await rm(thumbnailPath(deps.dataDir, effect.id), { force: true });
       return;

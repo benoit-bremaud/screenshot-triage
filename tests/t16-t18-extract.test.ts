@@ -79,6 +79,23 @@ describe('UC4 extract (T-16, T-18)', () => {
     expect(await ws.exists('data', 'thumbnails', `${id}.jpg`)).toBe(false);
   });
 
+  it('T-18: an undecodable design gem still lands, reported without thumbnail', async () => {
+    const id = await triagedCapture(ws, 'bad.png', png('truncated'), 'design');
+    const design = [{ rank: 1, text: 'Tight leading', kind: 'design', status: 'consistent' }];
+
+    const run = await extractRun(ws, id, { gem: true, rules: design });
+
+    expect(run.code).toBe(0);
+    expect(run.json()).toMatchObject({ status: 'extracted', thumbnail: null });
+    expect(await ws.list('data', 'thumbnails')).toEqual([]);
+  });
+
+  it('T-18: a gem outside design is reported without thumbnail', async () => {
+    const id = await triagedCapture(ws, 'f.png', png('f'));
+
+    expect((await extractRun(ws, id, { gem: true })).json()).toMatchObject({ thumbnail: null, gemWithoutThumbnail: true });
+  });
+
   it('T-18: no thumbnail for a gem outside design', async () => {
     const id = await triagedCapture(ws, 'w.webp', await image(2, 'webp'), 'frontend');
 
