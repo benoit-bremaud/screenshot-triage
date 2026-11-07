@@ -2,6 +2,10 @@
 
 Chronological logbook of decisions and events, complementing `git log`. Newest entry first.
 
+## 2026-11-07 — Brick 2 merged
+
+- PR #9 squash-merged as 84a4a4f, closes #2; GitHub Actions dropped (owner rule 2026-11-07, Actions billed): the CI is local only, `npm run check` plus `gitleaks git`.
+
 ## 2026-11-06 — Brick 2 code: triage CLI on a local-directory source (#2)
 
 - The CLI of the validated conception lands in `src/`: `scan · file · doubt · resolve · status · tags`, the pure `transition(capture, event)` of `05-state-capture.md` in `src/triage/`, the effect runner with `--dry-run`, the private index and the labels-only decision log in `src/store/`, the `CaptureSource` port and the local-directory adapter (`Personnel/`, `.trash/`, copies named `<id>.<ext>` from the magic bytes).
