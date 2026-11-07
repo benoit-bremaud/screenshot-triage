@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -98,6 +98,19 @@ describe('UC6 notes (T-20)', () => {
     const report = (await ws.run(['notes', '--skills-dir', join(clone, 'skills')])).json<NotesReport>();
 
     expect(report.skills[0]?.adopted.map(rankOf)).toEqual(['2']);
+  });
+
+  it('a git error while reading origin/main fails instead of listing the skill as new', async () => {
+    const id = await triagedCapture(ws, 'a.png', png('a'));
+    await extractRun(ws, id);
+    const { clone } = await skillsRepo(ws, '');
+    const tree = git(clone, 'rev-parse', 'origin/main^{tree}').trim();
+    await rm(join(clone, '.git', 'objects', tree.slice(0, 2), tree.slice(2)), { force: true });
+
+    const run = await ws.run(['notes', '--skills-dir', join(clone, 'skills')]);
+
+    expect(run.code).toBe(3);
+    expect(run.out.join('\n')).not.toContain('candidates');
   });
 
   it('refuses a skills repository without origin/main', async () => {

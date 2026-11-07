@@ -36,13 +36,13 @@ const writeThumbnailOf = async (deps: EffectDeps, localName: string, id: string)
     await rm(thumbnailPath(deps.dataDir, id), { force: true });
     return;
   }
-  await writeFile(thumbnailPath(deps.dataDir, id), jpeg);
+  await writeAtomic(thumbnailPath(deps.dataDir, id), jpeg);
 };
 
-/** Writes through a temporary file, so a crash never leaves a half-written sheet. */
-const writeAtomic = async (path: string, text: string): Promise<void> => {
+/** Writes through a temporary file, so a crash never leaves a half-written sheet or thumbnail. */
+const writeAtomic = async (path: string, content: string | Uint8Array): Promise<void> => {
   const tmp = `${path}.tmp`;
-  await writeFile(tmp, text, 'utf8');
+  await writeFile(tmp, content);
   await rename(tmp, path);
 };
 

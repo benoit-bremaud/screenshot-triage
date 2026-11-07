@@ -100,6 +100,18 @@ describe('UC5 purge (T-19)', () => {
     expect(original?.error).toBeUndefined();
   });
 
+  it.skipIf(process.getuid?.() === 0)('a failed error flag is reported next to the purge failure', async () => {
+    const { id } = await setup();
+    await chmod(ws.source, 0o555);
+    await chmod(ws.data, 0o555);
+
+    const run = await ws.run(['purge', '--source', ws.source]);
+    await chmod(ws.data, 0o755);
+
+    expect(run.code).toBe(3);
+    expect(run.err.join('\n')).toContain(`could not flag ${id}`);
+  });
+
   it('needs --source', async () => {
     await setup();
 
