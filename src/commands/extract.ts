@@ -66,6 +66,8 @@ export const purge = async (context: CommandContext): Promise<number> => {
   let purged = 0;
   const failed: string[] = [];
   const skipped: string[] = [];
+  // Sequential on purpose: one capture at a time, duplicates before the original's row (ADR-0003), so a
+  // crash leaves at most one capture half-purged and a re-run completes it.
   for (const row of extracted) {
     const id = idOf(row.contentHash);
     if (row.domain === undefined || !(await exists(sheetPath(context.knowledgeDir, row.domain, id)))) {
