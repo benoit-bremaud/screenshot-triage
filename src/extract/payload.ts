@@ -9,19 +9,24 @@ import { isKebabCase } from '../triage/tags.js';
  */
 const FORBIDDEN = /[\p{Cc}\p{Cf}\p{Co}\p{Cn}\u2028\u2029]/u;
 
+/** A zero-width joiner between two pictographs is part of an emoji sequence (\ud83d\udc69\u200d\ud83d\udcbb), not hidden text. */
+const EMOJI_JOINER = /(?<=\p{Extended_Pictographic}\p{M}*)\u200d(?=\p{Extended_Pictographic})/gu;
+
+const isVisible = (text: string): boolean => !FORBIDDEN.test(text.replace(EMOJI_JOINER, ''));
+
 const line = (max: number) =>
   z
     .string()
     .trim()
     .min(1)
     .max(max)
-    .refine((text) => !FORBIDDEN.test(text), 'One line, no control or invisible character');
+    .refine(isVisible, 'One line, no control or invisible character');
 
 /** At most 3 non-empty lines, each trimmed (ADR-0003 consequences). */
 const summary = z
   .string()
   .max(600)
-  .refine((text) => !FORBIDDEN.test(text.replaceAll('\n', '')), 'No control or invisible character')
+  .refine((text) => isVisible(text.replaceAll('\n', '')), 'No control or invisible character')
   .transform((text) => text.split('\n').map((part) => part.trim()).filter((part) => part !== ''))
   .refine((lines) => lines.length >= 1 && lines.length <= 3, 'A summary holds 1 to 3 lines');
 

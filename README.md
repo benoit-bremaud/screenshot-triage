@@ -63,7 +63,7 @@ node dist/main.js notes --skills-dir ~/.claude/skills    # uncited rules per tar
 
 ## Status
 
-Brick 0: repository created, decisions recorded. Brick 2 (triage CLI with a local-directory source): conception and code done. Brick 4 (extraction, purge, field-notes report): conception and CLI done; the `/screenshots` skill is written in `~/.claude`. Brick 1 (Immich on the homelab) in `bb-homelab`. Planned: 3 Immich adapter, 5 Google Photos backlog, 6 local model in shadow mode.
+Brick 0: repository created, decisions recorded. Brick 2 (triage CLI with a local-directory source): conception and code done. Brick 4 (extraction, purge, field-notes report): conception and CLI done; the `/screenshots` skill is pending, under its own issue in `~/.claude`. Brick 1 (Immich on the homelab) in `bb-homelab`. Planned: 3 Immich adapter, 5 Google Photos backlog, 6 local model in shadow mode.
 
 ## Licence
 

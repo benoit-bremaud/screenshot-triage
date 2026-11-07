@@ -81,7 +81,8 @@ describe('UC5 purge (T-19)', () => {
     expect(await ws.exists('source', 'a.png')).toBe(true);
   });
 
-  it('a failed source call is reported, exit 3, the row stays extracted with an error, a re-run completes', async () => {
+  // A read-only folder does not stop root, so the failure cannot be provoked that way.
+  it.skipIf(process.getuid?.() === 0)('a failed source call is reported, exit 3, the row stays extracted with an error, a re-run completes', async () => {
     const { id } = await setup();
     await chmod(ws.source, 0o555);
 

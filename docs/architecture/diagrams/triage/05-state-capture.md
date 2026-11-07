@@ -6,7 +6,7 @@
 
 ## Context
 
-The lifecycle of one capture as recorded in `data/index.jsonl`. The state names, lowercased, are the values of the `status` enum in `src/triage/`; the diagram is the source of truth for the legal transitions and the code must refuse the others. Deletion is an effect of exactly four events: two owner answers (applied to the capture and its duplicates), the purge after a sheet, and `scan` meeting a copy of a capture already personal (index row or id in `Personnel/`) or still in `.trash/`, whose new copy follows that status at once.
+The lifecycle of one capture as recorded in `data/index.jsonl`. The state names, lowercased, are the values of the `status` enum in `src/triage/`; the diagram is the source of truth for the legal transitions and the code must refuse the others. Deletion is an effect of exactly four events: two owner answers (applied to the capture and its duplicates), the purge after a sheet, and `scan` meeting a copy of a capture already personal (index row or id in `Personnel/`) or still in `.trash/`, whose new copy follows that status at once. A sheet is removed only when a triaged capture is answered personal or delete, or re-filed, after a crashed `extract` left one.
 
 ## Diagram
 
@@ -60,13 +60,13 @@ stateDiagram-v2
 | Doubtful | `resolve(delete)` | Deleted | local delete, `source.trash` of the capture and its duplicates | T-6, T-14 |
 | Doubtful | `resolve(personal or delete) --dry-run` | Doubtful | effects printed in order, nothing changed | T-7 |
 | — | `scan --dry-run` | — | nothing changed: no copy, no row, every effect printed in order, the 2a source action included | T-7 |
-| Triaged | `file(decision)` | Triaged | re-file to another domain folder, decision appended with `answer = correction` | T-8 |
+| Triaged | `file(decision)` | Triaged | first remove a sheet and thumbnail left by a crashed `extract`, then re-file to another domain folder, decision appended with `answer = correction` | T-8, T-22 |
 | any other (state, event) pair | — | unchanged | rejected with the current status, non-zero exit | T-10 |
 | Triaged | `extract(sheet)` | Extracted | sheet `knowledge/<domain>/<id>.md`, thumbnail if design gem, index row, in that order | T-16, T-18 |
 | Extracted | `extract(sheet)` | Extracted | sheet and thumbnail rewritten | T-16 |
-| Extracted | `purge` | Deleted | duplicates first (`source.trash`, row), then local delete, `source.trash`, the original's row last; `--dry-run` prints them | T-19 |
-| Triaged | `resolve(personal)` | Personal | as from Doubtful (REQ-16) | T-22 |
-| Triaged | `resolve(delete)` | Deleted | as from Doubtful (REQ-16) | T-22 |
+| Extracted | `purge` (its sheet exists) | Deleted | duplicates first (`source.trash`, row), then local delete, `source.trash`, the original's row last; `--dry-run` prints them | T-19 |
+| Triaged | `resolve(personal)` | Personal | first remove a sheet and thumbnail left by a crashed `extract`, then as from Doubtful (REQ-16) | T-22 |
+| Triaged | `resolve(delete)` | Deleted | first remove a sheet and thumbnail left by a crashed `extract`, then as from Doubtful (REQ-16) | T-22 |
 | Duplicate | `resolve(personal)` on the original | Personal | `source.markPersonal` (or removal from the source when `Personnel/<id>.<ext>` already holds the identical bytes) | T-14 |
 | Duplicate | `resolve(delete)` on the original | Deleted | `source.trash` (same collision rule) | T-14 |
 | Duplicate | `purge` of the original, in its effect list | Deleted | `source.trash`, index row, before the original's row | T-19 |

@@ -122,7 +122,7 @@ const onMain = async (top: string, path: string): Promise<boolean> =>
     () => false,
   );
 
-/** `git show origin/main:<path>`, or undefined when the path does not exist there; any other git error is thrown. */
+/** `git show origin/main:<path>`, or undefined when `cat-file -e` finds no such object (origin/main itself is verified first). */
 const showOnMain = async (top: string, path: string): Promise<string | undefined> =>
   (await onMain(top, path)) ? git(top, 'show', `origin/main:${path}`) : undefined;
 

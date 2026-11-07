@@ -14,6 +14,11 @@ describe('sheet payload schema (T-17)', () => {
     expect(parse({}).success).toBe(true);
   });
 
+  it('accepts an emoji sequence joined by a zero-width joiner, refuses a lone joiner', () => {
+    expect(parse({ title: 'Dev \u{1F469}‍\u{1F4BB} tips' }).success).toBe(true);
+    expect(parse({ title: 'Dev‍tips' }).success).toBe(false);
+  });
+
   it.each([
     ['a technical rule with a design status', rule({ status: 'consistent' })],
     ['a design rule with a technical status', rule({ kind: 'design', status: 'verified' })],
