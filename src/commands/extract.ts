@@ -101,23 +101,23 @@ export interface NotesReport {
 
 /** Reads every sheet under `knowledge/<domain>/`; a file that is not a sheet is ignored. */
 const readSheets = async (knowledgeDir: string): Promise<ParsedSheet[]> => {
-  const sheets: ParsedSheet[] = [];
-  for (const domain of DOMAINS) {
-    let names: string[];
-    try {
-      names = await readdir(join(knowledgeDir, domain));
-    } catch (error) {
-      if (isMissing(error)) continue;
-      throw error;
-    }
-    const sheetNames = names.filter((entry) => /^[0-9a-f]{12}\.md$/.test(entry));
-    sheetNames.sort((a, b) => a.localeCompare(b));
-    for (const name of sheetNames) {
-      const sheet = parseSheet(await readFile(join(knowledgeDir, domain, name), 'utf8'));
-      if (sheet !== undefined) sheets.push(sheet);
-    }
+  const perDomain = await Promise.all(DOMAINS.map(async (domain) => readDomainSheets(join(knowledgeDir, domain))));
+  return perDomain.flat();
+};
+
+/** The sheets of one domain folder, by file name; a missing folder holds none. */
+const readDomainSheets = async (folder: string): Promise<ParsedSheet[]> => {
+  let names: string[];
+  try {
+    names = await readdir(folder);
+  } catch (error) {
+    if (isMissing(error)) return [];
+    throw error;
   }
-  return sheets;
+  const sheetNames = names.filter((entry) => /^[0-9a-f]{12}\.md$/.test(entry));
+  sheetNames.sort((a, b) => a.localeCompare(b));
+  const sheets = await Promise.all(sheetNames.map(async (name) => parseSheet(await readFile(join(folder, name), 'utf8'))));
+  return sheets.filter((sheet) => sheet !== undefined);
 };
 
 /** git never prompts for credentials, over https or ssh: a remote that needs them fails instead of blocking the session. */
@@ -163,12 +163,15 @@ export const notes = async (context: CommandContext, skillsDir: string | undefin
   const sheets = await readSheets(context.knowledgeDir);
   // Target skills are kebab-case (checked by `parseSheet`), so they never escape the skills folder.
   const skills = [...new Set(sheets.map((sheet) => sheet.targetSkill))];
-  const fieldNotes = new Map<string, string>();
-  const candidates: string[] = [];
-  for (const skill of skills) {
-    fieldNotes.set(skill, (await showOnMain(top, `${prefix}${skill}/references/field-notes.md`)) ?? '');
-    if (!(await onMain(top, `${prefix}${skill}/SKILL.md`))) candidates.push(skill);
-  }
+  const looked = await Promise.all(
+    skills.map(async (skill) => ({
+      skill,
+      notes: (await showOnMain(top, `${prefix}${skill}/references/field-notes.md`)) ?? '',
+      exists: await onMain(top, `${prefix}${skill}/SKILL.md`),
+    })),
+  );
+  const fieldNotes = new Map(looked.map(({ skill, notes: text }) => [skill, text]));
+  const candidates = looked.filter((entry) => !entry.exists).map((entry) => entry.skill);
   candidates.sort((a, b) => a.localeCompare(b));
   const report: NotesReport = {
     skills: uncitedNotes(sheets, (skill) => fieldNotes.get(skill) ?? ''),

@@ -47,24 +47,24 @@ export const buildStatus = async (context: CommandContext): Promise<StatusReport
     byStatus[row.status] = (byStatus[row.status] ?? 0) + 1;
     if (row.domain !== undefined) byDomain[row.domain] = (byDomain[row.domain] ?? 0) + 1;
   }
-  const doubtful: StatusReport['doubtful'][number][] = [];
-  for (const row of rows) {
-    if (row.status !== 'doubtful') continue;
-    doubtful.push({
-      ...(await entryOf(context, row)),
-      ...(row.category === undefined ? {} : { category: row.category }),
-      ...(row.reasoning === undefined ? {} : { reasoning: row.reasoning }),
-    });
-  }
-  const triaged: StatusReport['triaged'][number][] = [];
-  for (const row of rows) {
-    if (row.status !== 'triaged') continue;
-    triaged.push({
-      ...(await entryOf(context, row)),
-      ...(row.domain === undefined ? {} : { domain: row.domain }),
-      tags: row.tags ?? [],
-    });
-  }
+  const doubtful = await Promise.all(
+    rows
+      .filter((row) => row.status === 'doubtful')
+      .map(async (row) => ({
+        ...(await entryOf(context, row)),
+        ...(row.category === undefined ? {} : { category: row.category }),
+        ...(row.reasoning === undefined ? {} : { reasoning: row.reasoning }),
+      })),
+  );
+  const triaged = await Promise.all(
+    rows
+      .filter((row) => row.status === 'triaged')
+      .map(async (row) => ({
+        ...(await entryOf(context, row)),
+        ...(row.domain === undefined ? {} : { domain: row.domain }),
+        tags: row.tags ?? [],
+      })),
+  );
   const limit = context.now().getTime() - OLD_OTHER_DAYS * DAY_MS;
   return {
     byStatus,
