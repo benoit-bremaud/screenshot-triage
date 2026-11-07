@@ -115,6 +115,7 @@ const file = (capture: CaptureRow | undefined, decision: FileDecision, timestamp
   if (correction && (decision.model !== OWNER_MODEL || decision.confidence !== undefined)) {
     return reject(capture, `a correction carries model "${OWNER_MODEL}" and no confidence`);
   }
+  if (!correction && decision.confidence === undefined) return reject(capture, 'a first filing carries a confidence');
   // The answer label brick 6 values: `work` after a doubt the owner kept, `correction` on an owner re-file.
   let answer: DecisionLine['answer'] | undefined;
   if (correction) answer = 'correction';

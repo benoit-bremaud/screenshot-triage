@@ -12,7 +12,7 @@ Every domain term used in the diagrams, defined once. Alphabetical, English head
 | Content hash | SHA-256 of the file bytes; detects duplicates and identifies a capture in the versioned decision log so no filename reaches Git. | ADR-0002 |
 | Correction | A `file` on an already triaged capture by the owner, moving it to another domain; logged with `answer: correction`, `model: owner` and no confidence, so brick 6 can tell human labels from model labels. | `01-use-case.md` UC1 ext. 5b |
 | Decision log | `knowledge/decisions.jsonl`, append-only, versioned, one line per `file` decision, labels only (no reasoning); training material for brick 6, which reads the last line per hash and the reasoning from the private index. | ADR-0002 |
-| Decision payload | The JSON object a `file` or `doubt` command reads on stdin: prompt version, model, domain, tags, considered tags, confidence, reasoning (or category for a doubt). | ADR-0002 |
+| Decision payload | The JSON object a `file` or `doubt` command reads on stdin: prompt version, model, domain, tags, considered tags, confidence (required on a first filing, absent on a correction), reasoning (or category for a doubt). | ADR-0002 |
 | Design gem | A `design` capture worth keeping as an 800 px thumbnail outside Git when purged (brick 4). | ADR-0001 decision 7 |
 | Domain | One of the eight fixed folders a capture is filed into; the dominant subject of the capture. | ADR-0001 § Taxonomy |
 | Doubt | The model's refusal to pick a domain, with a category: `personal-suspected`, `unreadable` or `off-topic`; holds the capture until the owner answers. | CLAUDE.md |

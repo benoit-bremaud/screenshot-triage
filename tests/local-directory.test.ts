@@ -109,6 +109,19 @@ describe('LocalDirectorySource', () => {
     await rm(outside, { recursive: true, force: true });
   });
 
+  it('counts only regular files as final records', async () => {
+    await mkdir(join(root, '.trash', 'aaaaaaaaaaaa.png'), { recursive: true });
+    await symlink(join(root, 'a.png'), join(root, '.trash', 'bbbbbbbbbbbb.png'));
+
+    expect((await source.finalIds()).trashed).toEqual(new Set());
+  });
+
+  it('refuses to read a symbolic link put in place of a capture', async () => {
+    await symlink(join(root, 'a.png'), join(root, 'link.png'));
+
+    await expect(source.read('link.png')).rejects.toThrow();
+  });
+
   it('lists ids only from the final folders, ignoring foreign names', async () => {
     await mkdir(join(root, '.trash'));
     await writeFile(join(root, '.trash', 'notes.txt'), 'x');

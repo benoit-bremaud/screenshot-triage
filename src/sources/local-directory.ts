@@ -1,4 +1,5 @@
-import { lstat, mkdir, readdir, readFile, rename, rm, stat } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { lstat, mkdir, open, readdir, readFile, rename, rm, stat } from 'node:fs/promises';
 import { isAbsolute, join, relative, sep } from 'node:path';
 
 import { isMissing } from '../fs.js';
@@ -49,8 +50,14 @@ export class LocalDirectorySource implements CaptureSource {
     }
   }
 
+  /** Never follows a symbolic link put in place of the listed file after the listing. */
   async read(ref: string): Promise<Uint8Array> {
-    return readFile(this.resolve(ref));
+    const handle = await open(this.resolve(ref), constants.O_RDONLY | constants.O_NOFOLLOW);
+    try {
+      return await handle.readFile();
+    } finally {
+      await handle.close();
+    }
   }
 
   async markPersonal(ref: string, target: SourceTarget): Promise<void> {
@@ -71,7 +78,9 @@ export class LocalDirectorySource implements CaptureSource {
   /** Lists names only (ids), never bytes (REQ-5). */
   private async idsIn(folder: string): Promise<Set<string>> {
     try {
-      const names = await readdir(await this.finalFolder(folder));
+      // Only regular files are records: a link, a folder or a device of the same name is not.
+      const entries = await readdir(await this.finalFolder(folder), { withFileTypes: true });
+      const names = entries.filter((entry) => entry.isFile()).map((entry) => entry.name);
       return new Set(names.map(idOfName).filter((id): id is string => id !== undefined));
     } catch (error) {
       if (isMissing(error)) return new Set();

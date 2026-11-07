@@ -52,7 +52,7 @@ describe('CLI hardening', () => {
   it('file and doubt honour --dry-run', async () => {
     await ws.scan();
 
-    const filed = await ws.run(['file', id, '--dry-run'], JSON.stringify({ promptVersion: 'v1', model: 'm', reasoning: 'r', domain: 'frontend', tags: [] }));
+    const filed = await ws.run(['file', id, '--dry-run'], JSON.stringify({ promptVersion: 'v1', model: 'm', reasoning: 'r', domain: 'frontend', tags: [], confidence: 0.9 }));
     const doubted = await ws.run(['doubt', id, '--dry-run'], JSON.stringify({ promptVersion: 'v1', model: 'm', reasoning: 'r', category: 'off-topic' }));
 
     expect(filed.code).toBe(0);

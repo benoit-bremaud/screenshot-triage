@@ -40,7 +40,9 @@ const cases = STATUSES.flatMap((status) =>
 
 describe('transition matrix (REQ-8)', () => {
   it.each(cases)('$command on a $status capture', ({ status, command }) => {
-    const result = transition(row(status), events[command]);
+    // A first filing carries a confidence; an owner correction never does.
+    const event = command === 'file' && status !== 'triaged' ? { ...events.file, decision: { ...decision, confidence: 0.9 } } : events[command];
+    const result = transition(row(status), event as Event);
 
     expect(result.ok).toBe(legal.has(`${status}:${command}`));
     if (!result.ok) expect(result.current).toBe(status);
@@ -50,6 +52,10 @@ describe('transition matrix (REQ-8)', () => {
     const result = transition(undefined, events[command]);
 
     expect(result).toMatchObject({ ok: false, current: undefined, reason: 'unknown capture' });
+  });
+
+  it('a first filing without a confidence is rejected', () => {
+    expect(transition(row('inbox'), events.file)).toMatchObject({ ok: false, reason: 'a first filing carries a confidence' });
   });
 
   it('a correction from the model, or with a confidence, is rejected', () => {
