@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import sharp from 'sharp';
@@ -88,6 +88,22 @@ describe('UC4 extract (T-16, T-18)', () => {
     expect(run.code).toBe(0);
     expect(run.json()).toMatchObject({ status: 'extracted', thumbnail: null });
     expect(await ws.list('data', 'thumbnails')).toEqual([]);
+  });
+
+  // A read-only folder does not stop root, so the failure cannot be provoked that way.
+  it.skipIf(process.getuid?.() === 0)('T-18: a thumbnail write failure fails the extract, the row stays triaged for a re-run', async () => {
+    const id = await triagedCapture(ws, 'g.png', await image(2), 'design');
+    const folder = join(ws.data, 'thumbnails');
+    await mkdir(folder, { recursive: true });
+    await chmod(folder, 0o555);
+    const design = [{ rank: 1, text: 'Tight leading', kind: 'design', status: 'consistent' }];
+
+    const run = await extractRun(ws, id, { gem: true, rules: design });
+    await chmod(folder, 0o755);
+
+    expect(run.code).toBe(3);
+    expect((await ws.rowById(id))[0]?.status).toBe('triaged');
+    expect((await extractRun(ws, id, { gem: true, rules: design })).json()).toMatchObject({ status: 'extracted', thumbnail: expect.stringContaining(id) });
   });
 
   it('T-18: a gem outside design is reported without thumbnail', async () => {

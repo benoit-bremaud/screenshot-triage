@@ -8,7 +8,7 @@ import type { DecisionLog } from './store/decision-log.js';
 import { contentHashOf } from './triage/capture.js';
 import { DOMAINS } from './triage/domains.js';
 import { describeEffect, type Effect } from './triage/effects.js';
-import { writeThumbnail } from './thumbnail.js';
+import { renderThumbnail } from './thumbnail.js';
 
 /** Where `scan` copies new captures, under `data/`. */
 export const INBOX_FOLDER = 'inbox';
@@ -21,9 +21,6 @@ export const thumbnailPath = (dataDir: string, id: string): string => join(dataD
 /** Where the sheet of a capture is written (ADR-0003 decision 1); `purge` checks it exists before deleting. */
 export const sheetPath = (knowledgeDir: string, domain: string, id: string): string => join(knowledgeDir, domain, `${id}.md`);
 
-/** A file-system error carries an errno `code` (ENOSPC, EACCES); a decode failure from sharp does not. */
-const isSystemError = (error: unknown): boolean => error instanceof Error && typeof (error as NodeJS.ErrnoException).code === 'string';
-
 /**
  * A thumbnail is a convenience: an undecodable image is reported as `thumbnail: null` and the sheet and
  * the row still land. A file-system error propagates, so the row stays `triaged` and a re-run retries.
@@ -32,12 +29,14 @@ const writeThumbnailOf = async (deps: EffectDeps, localName: string, id: string)
   const from = await locateLocal(deps.dataDir, localName);
   if (from === undefined) throw new Error(`local copy ${localName} not found`);
   await mkdir(join(deps.dataDir, THUMBNAILS_FOLDER), { recursive: true });
+  let jpeg: Buffer;
   try {
-    await writeThumbnail(from, thumbnailPath(deps.dataDir, id));
-  } catch (error) {
-    if (isSystemError(error)) throw error;
+    jpeg = await renderThumbnail(from);
+  } catch {
     await rm(thumbnailPath(deps.dataDir, id), { force: true });
+    return;
   }
+  await writeFile(thumbnailPath(deps.dataDir, id), jpeg);
 };
 
 /** Writes through a temporary file, so a crash never leaves a half-written sheet. */

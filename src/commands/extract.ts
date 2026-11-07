@@ -122,8 +122,8 @@ const readDomainSheets = async (folder: string): Promise<ParsedSheet[]> => {
   return sheets.filter((sheet) => sheet !== undefined);
 };
 
-/** git never prompts for credentials, over https or ssh: a remote that needs them fails instead of blocking the session. */
-const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_SSH_COMMAND: 'ssh -o BatchMode=yes' };
+/** git never prompts for credentials over https; any other blocking prompt is cut by the timeout below. */
+const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
 
 /** An unreachable remote fails the fetch after this delay instead of hanging. */
 const GIT_TIMEOUT_MS = 60_000;

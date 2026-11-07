@@ -15,9 +15,10 @@ describe('sheet payload schema (T-17)', () => {
   });
 
   it('accepts an emoji sequence joined by a zero-width joiner, refuses a lone joiner', () => {
-    expect(parse({ title: 'Dev \u{1F469}‍\u{1F4BB} tips' }).success).toBe(true);
-    expect(parse({ title: 'Dev \u{1F469}\u{1F3FD}‍\u{1F4BB} tips' }).success).toBe(true);
-    expect(parse({ title: 'Dev‍tips' }).success).toBe(false);
+    expect(parse({ title: 'Dev \u{1F469}\u200D\u{1F4BB} tips' }).success).toBe(true);
+    expect(parse({ title: 'Dev \u{1F469}\u{1F3FD}\u200D\u{1F4BB} tips' }).success).toBe(true);
+    expect(parse({ title: 'Family \u{1F468}\u200D\u{1F469}\u200D\u{1F467}\u200D\u{1F466}' }).success).toBe(true);
+    expect(parse({ title: 'Dev\u200Dtips' }).success).toBe(false);
   });
 
   it.each([
@@ -35,8 +36,8 @@ describe('sheet payload schema (T-17)', () => {
     ['a line separator', { summary: 'a\u2028b' }],
     ['a paragraph separator', { justification: 'a\u2029b' }],
     ['a Unicode tag character', rule({ text: 'Use flexbox\u{E0041}\u{E0042}' })],
-    ['a zero-width space', { title: 'zero​width' }],
-    ['a byte-order mark in the summary', { summary: 'line one\n﻿line two' }],
+    ['a zero-width space', { title: 'zero\u200Bwidth' }],
+    ['a byte-order mark in the summary', { summary: 'line one\n\uFEFFline two' }],
     ['http evidence', rule({ evidence: 'http://example.com' })],
     ['a backtick in the evidence', rule({ evidence: 'https://example.com/`x`' })],
     ['an angle bracket in the evidence', rule({ evidence: 'https://example.com/<x>' })],
