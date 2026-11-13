@@ -274,6 +274,23 @@ describe('scan and the archive (T-25)', () => {
     expect((await ws.rowById(id)).map((row) => row.status)).toEqual(['personal', 'personal']);
   });
 
+  it.skipIf(process.getuid?.() === 0)('after a failed archive, a replaced copy ref still lets resolve empty the archive', async () => {
+    const id = await triagedCapture(ws, 'a.png', png('a'));
+    await ws.addCapture('copy/a.png', png('a'));
+    await ws.scan();
+    await mkdir(join(ws.source, '.archive'));
+    await chmod(ws.source, 0o555);
+    expect((await ws.run(['archive', '--source', ws.source])).code).toBe(3);
+    await chmod(ws.source, 0o755);
+    await ws.addCapture('copy/a.png', png('b'));
+    await ws.scan();
+
+    await ws.resolve(id, 'personal');
+
+    expect(await ws.list('source', '.archive')).toEqual([]);
+    expect(await ws.list('source', 'Personnel')).toEqual([`${id}.png`]);
+  });
+
   it('other bytes under an archived ref keep the archived row answerable', async () => {
     const id = await triagedCapture(ws, 'a.png', png('a'));
     await ws.run(['archive', '--source', ws.source]);
