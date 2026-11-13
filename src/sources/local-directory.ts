@@ -11,6 +11,10 @@ import type { CaptureSource, FinalIds, SourceCapture } from './capture-source.js
 export const PERSONAL_FOLDER = 'Personnel';
 /** Source subfolder acting as the trash: restorable, ids listed only. */
 export const TRASH_FOLDER = '.trash';
+/** Source subfolder acting as the private archive of triaged captures (ADR-0004): ids listed only. */
+export const ARCHIVE_FOLDER = '.archive';
+
+const FINAL_FOLDERS: ReadonlySet<string> = new Set([PERSONAL_FOLDER, TRASH_FOLDER, ARCHIVE_FOLDER]);
 
 /** Final folders hold `<id>.<ext>` names with a whitelisted image extension; anything else there is ignored. */
 const idOfName = (fileName: string): string | undefined => {
@@ -20,7 +24,7 @@ const idOfName = (fileName: string): string | undefined => {
 };
 
 /**
- * Brick 2 source: a directory of screenshots. `Personnel/` and `.trash/` are the durable
+ * Brick 2 source: a directory of screenshots. `Personnel/`, `.trash/` and `.archive/` are the durable
  * record of final statuses, skipped by `listCaptures`, their content never read.
  */
 export class LocalDirectorySource implements CaptureSource {
@@ -37,7 +41,7 @@ export class LocalDirectorySource implements CaptureSource {
     for (const entry of entries) {
       const path = join(dir, entry.name);
       if (entry.isDirectory()) {
-        const top = dir === this.root && (entry.name === PERSONAL_FOLDER || entry.name === TRASH_FOLDER);
+        const top = dir === this.root && FINAL_FOLDERS.has(entry.name);
         if (!top) await this.walk(path, into);
         continue;
       }
@@ -70,10 +74,15 @@ export class LocalDirectorySource implements CaptureSource {
     await this.moveInto(TRASH_FOLDER, ref, target);
   }
 
+  async archive(ref: string, target: SourceTarget): Promise<void> {
+    await this.moveInto(ARCHIVE_FOLDER, ref, target);
+  }
+
   async finalIds(): Promise<FinalIds> {
     return {
       personal: await this.idsIn(PERSONAL_FOLDER),
       trashed: await this.idsIn(TRASH_FOLDER),
+      archived: await this.idsIn(ARCHIVE_FOLDER),
     };
   }
 
@@ -98,8 +107,13 @@ export class LocalDirectorySource implements CaptureSource {
    * target exists the duplicate is removed instead, the bytes being identical.
    */
   private async moveInto(folder: string, ref: string, target: SourceTarget): Promise<void> {
-    const from = this.resolve(ref);
+    // The name comes from the private index: never a path, only `<id>.<ext>`.
+    if (idOfName(target.localName) === undefined) throw new Error('invalid local name');
     const destination = join(await this.finalFolder(folder), target.localName);
+    // Only an archived capture is looked for in `.archive/` (ADR-0004 decision 3); any other is at its ref.
+    const archived = target.archived === true ? await this.locate(join(ARCHIVE_FOLDER, target.localName)) : undefined;
+    if (target.archived === true && archived === undefined) return;
+    const from = archived ?? this.resolve(ref);
     let info;
     try {
       info = await lstat(from);
@@ -110,7 +124,7 @@ export class LocalDirectorySource implements CaptureSource {
     // A link swapped in after the scan is not the capture: it is left alone, never moved.
     if (!info.isFile()) return;
     const changed = info.size !== target.size || info.mtime.toISOString() !== target.takenAt;
-    if (changed && contentHashOf(await this.read(ref)) !== target.contentHash) return;
+    if (changed && contentHashOf(await this.read(relative(this.root, from))) !== target.contentHash) return;
     await mkdir(join(this.root, folder), { recursive: true });
     const record = await lstat(destination).catch((error: unknown) => {
       if (isMissing(error)) return undefined;
@@ -126,6 +140,17 @@ export class LocalDirectorySource implements CaptureSource {
       return;
     }
     await rename(from, destination);
+  }
+
+  /** The path of a regular file inside a real final folder, or undefined when there is none. */
+  private async locate(path: string): Promise<string | undefined> {
+    await this.finalFolder(ARCHIVE_FOLDER);
+    const full = join(this.root, path);
+    const info = await lstat(full).catch((error: unknown) => {
+      if (isMissing(error)) return undefined;
+      throw error;
+    });
+    return info?.isFile() === true ? full : undefined;
   }
 
   /**

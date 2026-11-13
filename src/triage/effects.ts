@@ -12,6 +12,7 @@ export type Effect =
   | { readonly kind: 'delete-local'; readonly localName: string }
   | { readonly kind: 'source-mark-personal'; readonly ref: string; readonly target: SourceTarget }
   | { readonly kind: 'source-trash'; readonly ref: string; readonly target: SourceTarget }
+  | { readonly kind: 'source-archive'; readonly ref: string; readonly target: SourceTarget }
   | { readonly kind: 'log-append'; readonly line: DecisionLine }
   | { readonly kind: 'index-write'; readonly row: CaptureRow }
   | { readonly kind: 'write-sheet'; readonly id: string; readonly domain: Domain; readonly markdown: string }
@@ -32,6 +33,8 @@ export const describeEffect = (effect: Effect): string => {
       return `source.markPersonal(${effect.target.localName})`;
     case 'source-trash':
       return `source.trash(${effect.target.localName})`;
+    case 'source-archive':
+      return `source.archive(${effect.target.localName})`;
     case 'log-append':
       return `append decision for ${idOf(effect.line.contentHash)} (${effect.line.domain})`;
     case 'index-write':

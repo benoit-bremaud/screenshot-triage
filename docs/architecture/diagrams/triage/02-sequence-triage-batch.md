@@ -26,14 +26,14 @@ sequenceDiagram
   CLI->>Store: load index (known refs, known hashes)
   Store-->>CLI: index
   CLI->>Source: finalIds()
-  Source-->>CLI: ids in Personnel/ and .trash/ (names only, never bytes)
+  Source-->>CLI: ids in Personnel/, .trash/ and .archive/ (names only, never bytes)
   CLI->>Source: listCaptures()
   Source-->>CLI: captures (ref, name, takenAt, size, ocrText?)
-  loop for each capture whose ref is not in the index, or whose row is deleted or personal (restored or re-synced)
+  loop for each capture whose ref is not in the index, or whose row is final: deleted, personal or archived (restored or re-synced)
     CLI->>Source: read(ref)
     Source-->>CLI: bytes
-    alt personal (index row or ID in Personnel/), or ID still in .trash/ (checked first)
-      CLI->>Source: markPersonal(ref, target) or trash(ref, target), target = ID.EXT + contentHash + size + takenAt; a changed file is hashed and moved only if its bytes match, an existing target removes the copy (or printed with --dry-run)
+    alt personal (index row or ID in Personnel/), or ID still in .trash/ or .archive/ (checked first)
+      CLI->>Source: markPersonal(ref, target), trash(ref, target) or archive(ref, target), target = ID.EXT + contentHash + size + takenAt; a changed file is hashed and moved only if its bytes match, an existing target removes the copy (or printed with --dry-run)
       CLI->>Store: upsert(ref, status = original's status, duplicateOf)
     else hash already indexed, original not final
       CLI->>Store: upsert(ref, status = duplicate, duplicateOf)
@@ -57,13 +57,13 @@ sequenceDiagram
     CLI-->>Skill: ok
   end
   Skill-->>Owner: batch report (per domain, new tags, doubtful held)
-  Note over Owner,Skill: doubtful held → continues in sd — UC2 (SEQ-resolve-doubt)
+  Note over Owner,Skill: triaged → archived in sd — UC7 (SEQ-archive); doubtful held → sd — UC2 (SEQ-resolve-doubt)
 ```
 
 ## Notes
 
-- **No deletion of a work capture** on this diagram (REQ-3); a duplicate keeps its index row only, the duplicate file is not copied. The one source action here settles a copy of a capture already personal or deleted, so a phone re-sync never resurfaces it, even after `data/` is lost, because the personal guard also reads the ids in `Personnel/` (content never read, ids only), while a deleted copy is re-trashed only while its id is still in `.trash/`, so a restored file is triaged again; `scan --dry-run` changes nothing and prints every effect (REQ-6, `05-state-capture.md`, T-7, T-14).
-- **The log holds labels only**: the reasoning of a filing stays in the index row (Codex P1 on PR #7: a false-negative `work` filing must not publish text echoed from a personal screenshot). On Immich a restored asset keeps its ref, so the loop also revisits refs whose row is `deleted`, and refs whose row is `personal` (a re-synced copy under the same name); on the local source a restored file is a new ref.
+- **No deletion of a work capture** on this diagram (REQ-3); a duplicate keeps its index row only, the duplicate file is not copied. The one source action here settles a copy of a capture already personal, deleted or archived, so a phone re-sync never resurfaces it, even after `data/` is lost, because the personal guard also reads the ids in `Personnel/` (content never read, ids only), while a deleted copy is re-trashed only while its id is still in `.trash/`, so a restored file is triaged again; `scan --dry-run` changes nothing and prints every effect (REQ-6, `05-state-capture.md`, T-7, T-14).
+- **The log holds labels only**: the reasoning of a filing stays in the index row (Codex P1 on PR #7: a false-negative `work` filing must not publish text echoed from a personal screenshot). On Immich a restored asset keeps its ref, so the loop also revisits refs whose row is `deleted`, and refs whose row is `personal` or `archived` (a re-synced copy under the same name; an archived row is kept, not replaced); on the local source a restored file is a new ref.
 - **Three identifiers** (glossary): `ref` is the index row key and the only name the source knows; `contentHash` detects duplicates and identifies a capture in the versioned decision log, so no filename reaches Git (REQ-5, NFR-1); `id`, its first 12 hex characters, is what every command takes on argv, so an attacker-controlled filename never reaches a shell command built by the session.
 - **A capture kept as work is never doubted again**: `scan` returns `doubtAnswer` and the CLI rejects `doubt` on a row whose `doubtAnswer` is `work` (T-10).
 - **Free text never travels through argv**: the decision payload is one JSON object on stdin, validated against one schema in `src/triage/` (ADR-0002). A doubt payload is stored in the git-ignored index only; the versioned decision log receives `file` decisions only (REQ-4).

@@ -130,7 +130,7 @@ describe('LocalDirectorySource', () => {
     await source.markPersonal('a.png', target);
 
     expect(await readFile(join(root, 'a.png'), 'utf8')).toBe('bytes');
-    expect(await source.finalIds()).toEqual({ personal: new Set(), trashed: new Set() });
+    expect(await source.finalIds()).toEqual({ personal: new Set(), trashed: new Set(), archived: new Set() });
   });
 
   it('lists ids only from the final folders, ignoring foreign names', async () => {

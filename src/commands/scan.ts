@@ -21,7 +21,7 @@ export interface ScanReport {
 
 /**
  * UC1 step 2 (SEQ-triage-batch): lists the source, hashes every new capture (or one whose ref
- * came back after a final status), runs the four guards and copies the inbox ones into
+ * came back after a final status), runs the five guards and copies the inbox ones into
  * `data/inbox/<id>.<ext>`. Prints a JSON `ScanReport`. With `--dry-run` nothing is written.
  */
 export const scan = async (context: CommandContext): Promise<number> => {
@@ -59,6 +59,7 @@ export const scan = async (context: CommandContext): Promise<number> => {
         sameHash: context.index.byHash(contentHash),
         personalAtSource: finalIds.personal.has(id),
         trashedAtSource: finalIds.trashed.has(id),
+        archivedAtSource: finalIds.archived.has(id),
       },
     });
     // `scanRevisits` is the guard `transition` applies: a rejection here cannot happen.

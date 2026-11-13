@@ -15,7 +15,7 @@ export interface ScanCandidate {
   readonly ocrText?: string;
 }
 
-/** The facts the four `scan` guards read, gathered by the caller (05-state-capture § Notes). */
+/** The facts the five `scan` guards read, gathered by the caller (05-state-capture § Notes). */
 export interface ScanFacts {
   /** Index rows sharing the candidate's hash. */
   readonly sameHash: readonly CaptureRow[];
@@ -23,6 +23,8 @@ export interface ScanFacts {
   readonly personalAtSource: boolean;
   /** The candidate's id sits in the source's `.trash/`. */
   readonly trashedAtSource: boolean;
+  /** The candidate's id sits in the source's `.archive/` (ADR-0004). */
+  readonly archivedAtSource: boolean;
 }
 
 /** The events of `05-state-capture.md`, each with the facts its guard reads. */
@@ -33,12 +35,16 @@ export type Event =
   | { readonly type: 'resolve'; readonly answer: Answer; readonly duplicates: readonly CaptureRow[] }
   /** `markdown` is the sheet already rendered by `src/extract/`; `gem` is the payload's flag. */
   | { readonly type: 'extract'; readonly markdown: string; readonly gem: boolean }
-  | { readonly type: 'purge'; readonly duplicates: readonly CaptureRow[] };
+  | { readonly type: 'purge'; readonly duplicates: readonly CaptureRow[] }
+  | { readonly type: 'archive'; readonly duplicates: readonly CaptureRow[] };
 
 /** The outcome of an event: the next status and its effects in order, or a rejection with the current status. */
 export type Transition =
   | { readonly ok: true; readonly next: Status; readonly effects: readonly Effect[] }
   | { readonly ok: false; readonly current: Status | undefined; readonly reason: string };
+
+/** Ref prefix of an archived row whose original ref now names other bytes; never a source path. */
+export const ARCHIVED_REF_PREFIX = 'archived:';
 
 /** The model name an owner correction carries (glossary "Correction"). */
 export const OWNER_MODEL = 'owner';
@@ -52,8 +58,7 @@ const reject = (capture: CaptureRow | undefined, reason: string): Transition => 
 const ok = (next: Status, effects: readonly Effect[]): Transition => ({ ok: true, next, effects });
 
 /** `scan` replaces a row only when its ref came back after a final status (restored or re-synced file). */
-export const scanRevisits = (row: CaptureRow | undefined): boolean =>
-  row === undefined || row.status === 'deleted' || row.status === 'personal';
+export const scanRevisits = (row: CaptureRow | undefined): boolean => row === undefined || isFinal(row.status);
 
 /** The capture state machine of `05-state-capture.md`: pure, every effect returned in order. */
 export const transition = (capture: CaptureRow | undefined, event: Event): Transition => {
@@ -70,6 +75,8 @@ export const transition = (capture: CaptureRow | undefined, event: Event): Trans
       return extract(capture, event.markdown, event.gem);
     case 'purge':
       return purge(capture, event.duplicates);
+    case 'archive':
+      return archive(capture, event.duplicates);
   }
 };
 
@@ -82,14 +89,21 @@ const withoutPrivateText = (row: CaptureRow): CaptureRow => {
 const scan = (capture: CaptureRow | undefined, candidate: ScanCandidate, facts: ScanFacts): Transition => {
   if (!scanRevisits(capture)) return reject(capture, 'scan only creates a row or replaces a final one');
   const base: CaptureRow = { ...candidate, status: 'inbox' };
+  // Other bytes under an archived row's ref: the archived row moves to a ref of its own so it stays answerable
+  // (ADR-0004 decision 3); the source then finds it in its archive, never at that ref.
+  const rekey: Effect[] =
+    capture?.status === 'archived' && capture.contentHash !== candidate.contentHash
+      ? [{ kind: 'index-write', row: { ...capture, ref: `${ARCHIVED_REF_PREFIX}${localName(capture)}` } }]
+      : [];
   const name = localName(candidate);
   const target = targetOf(base);
-  // Guard order is a spec clause: Personal, Deleted, Duplicate, then Inbox (05-state-capture § Notes, T-14).
+  // Guard order is a spec clause: Personal, Deleted, Archived, Duplicate, then Inbox (05-state-capture § Notes, T-14).
   // `duplicateOf` falls back to the row's own ref when only the source holds the original (lost index).
   const personalOriginal = facts.sameHash.find((row) => row.status === 'personal');
   if (personalOriginal !== undefined || facts.personalAtSource) {
     const row = withoutPrivateText({ ...base, status: 'personal', duplicateOf: personalOriginal?.ref ?? candidate.ref });
     return ok('personal', [
+      ...rekey,
       { kind: 'source-mark-personal', ref: candidate.ref, target },
       { kind: 'index-write', row },
     ]);
@@ -98,7 +112,22 @@ const scan = (capture: CaptureRow | undefined, candidate: ScanCandidate, facts: 
     const deletedOriginal = facts.sameHash.find((row) => row.status === 'deleted');
     const row: CaptureRow = { ...base, status: 'deleted', duplicateOf: deletedOriginal?.ref ?? candidate.ref };
     return ok('deleted', [
+      ...rekey,
       { kind: 'source-trash', ref: candidate.ref, target },
+      { kind: 'index-write', row },
+    ]);
+  }
+  if (facts.archivedAtSource) {
+    const archivedOriginal = facts.sameHash.find((row) => row.status === 'archived');
+    // The same bytes re-synced under the same ref keep their archived row: its domain and tags are what a later
+    // extraction reads. Other bytes under that ref get their own row; the archived one was re-keyed above.
+    const row: CaptureRow =
+      capture?.status === 'archived' && capture.contentHash === candidate.contentHash
+        ? capture
+        : { ...base, status: 'archived', duplicateOf: archivedOriginal?.ref ?? candidate.ref };
+    return ok('archived', [
+      ...rekey,
+      { kind: 'source-archive', ref: candidate.ref, target },
       { kind: 'index-write', row },
     ]);
   }
@@ -107,9 +136,10 @@ const scan = (capture: CaptureRow | undefined, candidate: ScanCandidate, facts: 
   );
   if (original !== undefined) {
     const row: CaptureRow = { ...base, status: 'duplicate', duplicateOf: original.ref };
-    return ok('duplicate', [{ kind: 'index-write', row }]);
+    return ok('duplicate', [...rekey, { kind: 'index-write', row }]);
   }
   return ok('inbox', [
+    ...rekey,
     { kind: 'copy-to-inbox', ref: candidate.ref, localName: name, contentHash: candidate.contentHash },
     { kind: 'index-write', row: base },
   ]);
@@ -172,11 +202,11 @@ const doubt = (capture: CaptureRow | undefined, decision: DoubtDecision): Transi
 
 const resolve = (capture: CaptureRow | undefined, answer: Answer, duplicates: readonly CaptureRow[]): Transition => {
   if (capture === undefined) return reject(capture, 'unknown capture');
-  if (capture.status !== 'doubtful' && capture.status !== 'triaged') {
-    return reject(capture, 'resolve applies to a doubtful or triaged capture');
+  if (capture.status !== 'doubtful' && capture.status !== 'triaged' && capture.status !== 'archived') {
+    return reject(capture, 'resolve applies to a doubtful, triaged or archived capture');
   }
   if (answer === 'work') {
-    if (capture.status === 'triaged') return reject(capture, 'a triaged capture is already work');
+    if (capture.status !== 'doubtful') return reject(capture, `a ${capture.status} capture is already work`);
     return ok('inbox', [{ kind: 'index-write', row: { ...capture, status: 'inbox', doubtAnswer: 'work' } }]);
   }
   const next: Status = answer === 'personal' ? 'personal' : 'deleted';
@@ -194,8 +224,14 @@ const resolve = (capture: CaptureRow | undefined, answer: Answer, duplicates: re
       { kind: 'index-write', row: withoutPrivateText({ ...duplicate, status: next }) },
     );
   }
-  effects.push({ kind: 'index-write', row: withoutPrivateText({ ...capture, status: next, doubtAnswer: answer }) });
+  const { error: _error, ...kept } = capture;
+  effects.push({ kind: 'index-write', row: withoutPrivateText({ ...kept, status: next, doubtAnswer: answer }) });
   return ok(next, effects);
+};
+
+const withoutError = (row: CaptureRow): CaptureRow => {
+  const { error: _error, ...kept } = row;
+  return kept;
 };
 
 /** Removes a sheet and thumbnail a crashed `extract` may have left; both are no-ops when absent. */
@@ -228,7 +264,7 @@ const extract = (capture: CaptureRow | undefined, markdown: string, gem: boolean
   return ok('extracted', [
     { kind: 'write-sheet', id, domain, markdown },
     thumbnail,
-    { kind: 'index-write', row: { ...capture, status: 'extracted' } },
+    { kind: 'index-write', row: { ...withoutError(capture), status: 'extracted' } },
   ]);
 };
 
@@ -250,4 +286,24 @@ const purge = (capture: CaptureRow | undefined, duplicates: readonly CaptureRow[
     { kind: 'index-write', row: { ...kept, status: 'deleted' } },
   );
   return ok('deleted', effects);
+};
+
+const archive = (capture: CaptureRow | undefined, duplicates: readonly CaptureRow[]): Transition => {
+  if (capture === undefined) return reject(capture, 'unknown capture');
+  if (capture.status !== 'triaged') return reject(capture, 'archive applies to a triaged capture');
+  // ADR-0004: a final capture never stays published; duplicates first, the original's row last, so a crash
+  // leaves it `triaged` and a re-run finds them again. The local copy stays for a later extraction.
+  const effects: Effect[] = [...sheetCleanup(capture)];
+  for (const duplicate of duplicates) {
+    effects.push(
+      { kind: 'source-archive', ref: duplicate.ref, target: targetOf(duplicate) },
+      { kind: 'index-write', row: { ...duplicate, status: 'archived' } },
+    );
+  }
+  const { error: _error, ...kept } = capture;
+  effects.push(
+    { kind: 'source-archive', ref: capture.ref, target: targetOf(capture) },
+    { kind: 'index-write', row: { ...kept, status: 'archived' } },
+  );
+  return ok('archived', effects);
 };

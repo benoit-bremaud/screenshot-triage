@@ -1,11 +1,7 @@
-import { idOf } from '../triage/capture.js';
 import { DOMAINS, type Domain } from '../triage/domains.js';
 import type { Status } from '../triage/status.js';
 import { NEW_SKILL_THRESHOLD } from '../triage/tags.js';
 import { EXIT_OK, entryOf, type CaptureEntry, type CommandContext } from './context.js';
-
-const OLD_OTHER_DAYS = 90;
-const DAY_MS = 86_400_000;
 
 /** A tag with its capture count; five or more make a new-skill candidate (ADR-0001 § Taxonomy). */
 export interface TagCount {
@@ -23,8 +19,6 @@ export interface StatusReport {
   /** Triaged captures with their domain and tags: the list UC4 extracts (REQ-17). */
   readonly triaged: readonly (CaptureEntry & { domain?: Domain; tags: readonly string[] })[];
   readonly tags: readonly TagCount[];
-  /** Triaged `other` captures taken more than 90 days ago. */
-  readonly oldOther: readonly { id: string; takenAt: string }[];
 }
 
 /** Tags with their capture counts, over every row that carries tags. */
@@ -65,16 +59,12 @@ export const buildStatus = async (context: CommandContext): Promise<StatusReport
         tags: row.tags ?? [],
       })),
   );
-  const limit = context.now().getTime() - OLD_OTHER_DAYS * DAY_MS;
   return {
     byStatus,
     byDomain,
     doubtful,
     triaged,
     tags: tagCounts(context),
-    oldOther: rows
-      .filter((row) => row.domain === 'other' && row.status === 'triaged' && Date.parse(row.takenAt) < limit)
-      .map((row) => ({ id: idOf(row.contentHash), takenAt: row.takenAt })),
   };
 };
 
@@ -96,7 +86,6 @@ export const status = async (context: CommandContext, json: boolean): Promise<nu
   for (const tag of report.tags) {
     context.out(`  ${tag.tag} ${String(tag.count)}${tag.newSkillCandidate ? ' (new-skill candidate)' : ''}`);
   }
-  context.out(`other older than ${String(OLD_OTHER_DAYS)} days: ${String(report.oldOther.length)}`);
   return EXIT_OK;
 };
 

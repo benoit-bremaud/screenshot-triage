@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { runEffects } from '../effects.js';
 import type { CaptureRow } from '../triage/capture.js';
 import { DoubtDecisionSchema, FileDecisionSchema } from '../triage/decision.js';
-import { isAnswer } from '../triage/status.js';
+import { isAnswer, type Status } from '../triage/status.js';
 import { transition, type Event } from '../triage/transition.js';
 import { EXIT_OK, reportRejection, requireSource, rowForId, UsageError, type CommandContext } from './context.js';
 
@@ -60,13 +60,16 @@ export const doubt = (context: CommandContext, id: string | undefined, stdin: st
 
 /**
  * `resolve <id> --as work|personal|delete [--dry-run]` (SEQ-resolve-doubt); personal and delete also on a
- * triaged capture (REQ-16). `work` has no destructive
+ * triaged capture (REQ-16) and on an archived one (ADR-0004). `work` has no destructive
  * effect, so it ignores `--dry-run` and needs no `--source`.
  */
 export const resolve = (context: CommandContext, id: string | undefined, answer: string | undefined): Promise<number> => {
   const row = rowForId(context, id);
   if (answer === undefined || !isAnswer(answer)) throw new UsageError('--as must be work, personal or delete');
   if (answer !== 'work') requireSource(context);
-  const duplicates = row === undefined ? [] : context.index.duplicatesOf(row.ref);
+  // Archived copies follow too: an archived capture's copies were archived with it, and a failed `archive` can
+  // leave a triaged capture with copies already in the archive (ADR-0004).
+  const statuses: readonly Status[] = row?.status === 'archived' ? ['archived'] : ['duplicate', 'archived'];
+  const duplicates = row === undefined ? [] : context.index.duplicatesOf(row, statuses);
   return apply(context, id ?? '', row, { type: 'resolve', answer, duplicates }, answer !== 'work' && context.dryRun);
 };

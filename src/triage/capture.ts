@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import type { Domain } from './domains.js';
 import type { ImageExt } from './image.js';
-import type { Answer, DoubtCategory, Status } from './status.js';
+import { isFinal, type Answer, type DoubtCategory, type Status } from './status.js';
 
 /** The id is the first 12 hex characters of the content hash: the only identifier on argv (REQ-9). */
 export const CAPTURE_ID = /^[0-9a-f]{12}$/;
@@ -51,6 +51,8 @@ export interface SourceTarget {
   readonly contentHash: string;
   readonly size: number;
   readonly takenAt: string;
+  /** The capture is archived: the source finds it in its archive, no longer at its ref (ADR-0004 decision 3). */
+  readonly archived?: boolean;
 }
 
 /** Name of every local copy: `<id>.<ext>` (glossary "Id"). */
@@ -63,8 +65,8 @@ export const targetOf = (row: CaptureRow): SourceTarget => ({
   contentHash: row.contentHash,
   size: row.size,
   takenAt: row.takenAt,
+  ...(row.status === 'archived' ? { archived: true } : {}),
 });
 
 /** A row a command may address: not final, not a duplicate (glossary "Id"). */
-export const isAddressable = (row: CaptureRow): boolean =>
-  row.status !== 'personal' && row.status !== 'deleted' && row.status !== 'duplicate';
+export const isAddressable = (row: CaptureRow): boolean => !isFinal(row.status) && row.status !== 'duplicate';

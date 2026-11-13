@@ -74,7 +74,7 @@ flowchart LR
 
 **Extensions**
 
-- 3a. The capture's `domain` is `other`: the skill skips it; it stays `triaged` and UC3 reminds the owner after 90 days.
+- 3a. The capture's `domain` is `other`: the skill skips it; it stays `triaged` until `archive` takes it out of the roll (ADR-0004).
 - 3b. The useful content cannot be stated without private text: the skill skips it and asks the owner, who answers `personal` or `delete` with `resolve` on the triaged capture (REQ-16) or keeps it as is; no sheet is written.
 - 5a. The capture's domain is `other`: system rejects it (REQ-10).
 - 5b. The payload is invalid (schema, rule kind and status mismatch, length, control character, non-`https` evidence): system rejects it with the reason, writes nothing; the skill may retry once.

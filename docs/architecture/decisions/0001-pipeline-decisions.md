@@ -40,7 +40,7 @@ phone ─Immich app─▶ Immich (Pi) ─API─▶ inbox/ (PC) ─▶ step 1 tri
   domain ─▶ step 2 extraction ─▶ sheet + tags + target skill ─▶ PC file deleted, Immich trashed, thumbnail if design gem
   doubtful ─▶ question to owner: perso (PC deleted, Immich album "Personnel", never read again) / pro (triaged) / delete (trash)
   duplicate ─▶ trash
-  other ─▶ set aside; reminder after 90 days
+  other ─▶ set aside; reminder after 90 days   (amended by ADR-0004: archived with work, reminder dropped)
 ```
 
 Deletion happens only on a final status, never on triage alone. `--dry-run` lists what would be deleted. API key scoped without trash-empty permission. Immich trash retention is server-configured (30 days default), restore available by API.
