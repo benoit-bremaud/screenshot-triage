@@ -3,7 +3,7 @@
 Pre-push review of the archive brick (#15, ADR-0004): four adversarial rounds, the push gate open, SonarQube passed.
 
 - Date: 2026-11-13
-- Commit: 6de0dc0
+- Commit: 710071e
 - Scope: branch diff main...HEAD (`--push`)
 - Checks run: adversarial (Opus, 4 rounds) · tests · coverage · SonarQube · secrets · diff read
 - Verdict: ship · Must 0 · Should 0 · Nice 4
@@ -14,14 +14,15 @@ Pre-push review of the archive brick (#15, ADR-0004): four adversarial rounds, t
 - Round 2 on `e816e78`: all 4 fixed · new Must 2, Should 1 · Push gate: closed. Fixed in `c08bbcc`.
 - Round 3 on `c08bbcc`: Must 1 partly fixed, Must 2 and Should fixed · new Must 2 (a personal answer left a copy in `.archive/`; a re-keyed ref let another capture's answer trash the archived one) · Push gate: closed. Fixed in `cbd4b71` (copies matched on the content hash).
 - Round 4 on `cbd4b71`: 2 fixed · new Must 0 · Should 1 (state machine), fixed in `43c4122` · **Push gate: open**.
+- Round 5 on `710071e` (fix of the Codex PR finding P2, archived row kept on re-sync only for the same bytes, plus `6de0dc0` and `43c4122`): all fixed · new Must 0 · **Push gate: open**.
 - Optional second review (owner's OpenAI account): not run (never a gate step).
 
-## Pre-merge gate (head SHA 6de0dc0)
+## Pre-merge gate (head SHA 710071e)
 
 | Step | Result |
 |---|---|
 | 0 CI mirror | n/a: no GitHub Actions (owner rule 2026-11-07) |
-| 1 Tests | ✅ 238 vitest (unit and CLI integration over a temporary directory) |
+| 1 Tests | ✅ 239 vitest (unit and CLI integration over a temporary directory) |
 | 2 Coverage | tests 96.42 % stmts / 90.84 % branches (floor 80) · docs ⏸ deferred to the pre-merge run |
 | 3 SonarQube | ✅ PASSED (project `screenshot-triage`, created by this branch's `sonar-project.properties`); new coverage 95 %, duplication 0 %; 5 new findings fixed, 2 S9382 "await in loop" in `src/commands/archive.ts` marked Accepted by the owner (sequential on purpose: a crash leaves at most one capture half-archived, like `purge`) |
 | 4 Secrets | ✅ gitleaks 8.30.1 clean on main..HEAD · no tracked `.env` (only `.env.example`) · diff read: nothing sensitive |
