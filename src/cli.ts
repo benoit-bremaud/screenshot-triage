@@ -32,7 +32,7 @@ export const USAGE = [
   '  file    <id> [--dry-run]                      decision JSON on stdin',
   '  doubt   <id> [--dry-run]                      doubt JSON on stdin',
   '  resolve <id> --as work|personal|delete [--source <dir>] [--dry-run]',
-  '          (personal and delete need --source; work ignores --dry-run; triaged: personal or delete)',
+  '          (personal and delete need --source; work ignores --dry-run; triaged or archived: personal or delete)',
   '  extract <id> [--dry-run]                      sheet JSON on stdin',
   '  purge   --source <dir> [--dry-run]            delete the extracted captures and their duplicates',
   '  archive --source <dir> [--dry-run]            move the triaged captures and their duplicates to .archive/',

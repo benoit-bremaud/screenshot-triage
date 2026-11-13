@@ -110,8 +110,9 @@ export class LocalDirectorySource implements CaptureSource {
     // The name comes from the private index: never a path, only `<id>.<ext>`.
     if (idOfName(target.localName) === undefined) throw new Error('invalid local name');
     const destination = join(await this.finalFolder(folder), target.localName);
-    // An archived capture answered personal or delete later sits in `.archive/`, no longer at its ref (ADR-0004).
-    const archived = folder === ARCHIVE_FOLDER ? undefined : await this.locate(join(ARCHIVE_FOLDER, target.localName));
+    // Only an archived capture is looked for in `.archive/` (ADR-0004 decision 3); any other is at its ref.
+    const archived = target.archived === true ? await this.locate(join(ARCHIVE_FOLDER, target.localName)) : undefined;
+    if (target.archived === true && archived === undefined) return;
     const from = archived ?? this.resolve(ref);
     let info;
     try {

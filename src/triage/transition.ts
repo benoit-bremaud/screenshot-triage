@@ -43,6 +43,9 @@ export type Transition =
   | { readonly ok: true; readonly next: Status; readonly effects: readonly Effect[] }
   | { readonly ok: false; readonly current: Status | undefined; readonly reason: string };
 
+/** Ref prefix of an archived row whose original ref now names other bytes; never a source path. */
+export const ARCHIVED_REF_PREFIX = 'archived:';
+
 /** The model name an owner correction carries (glossary "Correction"). */
 export const OWNER_MODEL = 'owner';
 
@@ -86,6 +89,12 @@ const withoutPrivateText = (row: CaptureRow): CaptureRow => {
 const scan = (capture: CaptureRow | undefined, candidate: ScanCandidate, facts: ScanFacts): Transition => {
   if (!scanRevisits(capture)) return reject(capture, 'scan only creates a row or replaces a final one');
   const base: CaptureRow = { ...candidate, status: 'inbox' };
+  // Other bytes under an archived row's ref: the archived row moves to a ref of its own so it stays answerable
+  // (ADR-0004 decision 3); the source then finds it in its archive, never at that ref.
+  const rekey: Effect[] =
+    capture?.status === 'archived' && capture.contentHash !== candidate.contentHash
+      ? [{ kind: 'index-write', row: { ...capture, ref: `${ARCHIVED_REF_PREFIX}${localName(capture)}` } }]
+      : [];
   const name = localName(candidate);
   const target = targetOf(base);
   // Guard order is a spec clause: Personal, Deleted, Archived, Duplicate, then Inbox (05-state-capture § Notes, T-14).
@@ -94,6 +103,7 @@ const scan = (capture: CaptureRow | undefined, candidate: ScanCandidate, facts: 
   if (personalOriginal !== undefined || facts.personalAtSource) {
     const row = withoutPrivateText({ ...base, status: 'personal', duplicateOf: personalOriginal?.ref ?? candidate.ref });
     return ok('personal', [
+      ...rekey,
       { kind: 'source-mark-personal', ref: candidate.ref, target },
       { kind: 'index-write', row },
     ]);
@@ -102,6 +112,7 @@ const scan = (capture: CaptureRow | undefined, candidate: ScanCandidate, facts: 
     const deletedOriginal = facts.sameHash.find((row) => row.status === 'deleted');
     const row: CaptureRow = { ...base, status: 'deleted', duplicateOf: deletedOriginal?.ref ?? candidate.ref };
     return ok('deleted', [
+      ...rekey,
       { kind: 'source-trash', ref: candidate.ref, target },
       { kind: 'index-write', row },
     ]);
@@ -111,9 +122,10 @@ const scan = (capture: CaptureRow | undefined, candidate: ScanCandidate, facts: 
     // The same ref re-synced keeps its archived row: its domain and tags are what a later extraction reads.
     const row: CaptureRow =
       capture?.status === 'archived'
-        ? { ...capture, takenAt: candidate.takenAt, size: candidate.size }
+        ? capture
         : { ...base, status: 'archived', duplicateOf: archivedOriginal?.ref ?? candidate.ref };
     return ok('archived', [
+      ...rekey,
       { kind: 'source-archive', ref: candidate.ref, target },
       { kind: 'index-write', row },
     ]);
@@ -123,9 +135,10 @@ const scan = (capture: CaptureRow | undefined, candidate: ScanCandidate, facts: 
   );
   if (original !== undefined) {
     const row: CaptureRow = { ...base, status: 'duplicate', duplicateOf: original.ref };
-    return ok('duplicate', [{ kind: 'index-write', row }]);
+    return ok('duplicate', [...rekey, { kind: 'index-write', row }]);
   }
   return ok('inbox', [
+    ...rekey,
     { kind: 'copy-to-inbox', ref: candidate.ref, localName: name, contentHash: candidate.contentHash },
     { kind: 'index-write', row: base },
   ]);

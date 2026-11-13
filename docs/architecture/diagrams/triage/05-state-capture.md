@@ -82,7 +82,7 @@ stateDiagram-v2
 | Archived | `resolve(personal)` | Personal | the source finds the file in `.archive/`, every local copy deleted, `source.markPersonal` of the capture and its archived copies, reasoning cleared (ADR-0004 decision 3) | T-24 |
 | Archived | `resolve(delete)` | Deleted | same, `source.trash` | T-24 |
 
-T-9 (90-day reminder) and T-11 to T-13 belong to UC3 and the tag rules, not to this machine; T-14 (a fresh `scan` after losing the index lists no personal or deleted capture) belongs to the source; see the matrix.
+T-9 (90-day reminder, dropped by ADR-0004) and T-11 to T-13 belong to UC3 and the tag rules, not to this machine; T-14 (a fresh `scan` after losing the index lists no personal or deleted capture) belongs to the source; see the matrix.
 
 ## Notes
 

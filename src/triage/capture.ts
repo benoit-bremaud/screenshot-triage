@@ -51,6 +51,8 @@ export interface SourceTarget {
   readonly contentHash: string;
   readonly size: number;
   readonly takenAt: string;
+  /** The capture is archived: the source finds it in its archive, no longer at its ref (ADR-0004 decision 3). */
+  readonly archived?: boolean;
 }
 
 /** Name of every local copy: `<id>.<ext>` (glossary "Id"). */
@@ -63,6 +65,7 @@ export const targetOf = (row: CaptureRow): SourceTarget => ({
   contentHash: row.contentHash,
   size: row.size,
   takenAt: row.takenAt,
+  ...(row.status === 'archived' ? { archived: true } : {}),
 });
 
 /** A row a command may address: not final, not a duplicate (glossary "Id"). */

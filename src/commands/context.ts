@@ -8,7 +8,7 @@ import type { Transition } from '../triage/transition.js';
 
 /** Everything a command needs, wired by `src/cli.ts` (the composition root). */
 export interface CommandContext extends EffectDeps {
-  /** Injected clock: timestamps of log lines and the 90-day rule. */
+  /** Injected clock: timestamps of log lines. */
   readonly now: () => Date;
   readonly err: (line: string) => void;
 }

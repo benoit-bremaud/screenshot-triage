@@ -254,4 +254,32 @@ describe('scan and the archive (T-25)', () => {
     expect(await ws.list('data', 'frontend')).toEqual([]);
     expect(await ws.list('data', 'design')).toEqual([`${id}.png`]);
   });
+
+  it('a triaged capture whose copy alone reached .archive/ is answered from its ref', async () => {
+    const id = await triagedCapture(ws, 'a.png', png('a'));
+    await ws.addCapture('copy/a.png', png('a'));
+    await ws.scan();
+    await mkdir(join(ws.source, '.archive'), { recursive: true });
+    await rename(join(ws.source, 'copy', 'a.png'), join(ws.source, '.archive', `${id}.png`));
+
+    await ws.resolve(id, 'personal');
+
+    expect(await ws.exists('source', 'a.png')).toBe(false);
+    expect(await ws.list('source', 'Personnel')).toEqual([`${id}.png`]);
+  });
+
+  it('other bytes under an archived ref keep the archived row answerable', async () => {
+    const id = await triagedCapture(ws, 'a.png', png('a'));
+    await ws.run(['archive', '--source', ws.source]);
+    const other = await ws.addCapture('a.png', png('b'));
+
+    await ws.scan();
+    const run = await ws.resolve(id, 'delete');
+
+    expect(run.code).toBe(0);
+    expect((await ws.rowById(id))[0]).toMatchObject({ ref: `archived:${id}.png`, status: 'deleted' });
+    expect((await ws.rowById(other))[0]?.status).toBe('inbox');
+    expect(await ws.list('source', '.trash')).toEqual([`${id}.png`]);
+    expect(await ws.exists('source', 'a.png')).toBe(true);
+  });
 });

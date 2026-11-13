@@ -23,4 +23,4 @@ Requirements of the triage step (brick #2), numbered per repository and cited by
 |---|---|---|
 | NFR-1 | No third-party image or private text in Git: `data/` (images, index) is git-ignored; `knowledge/` holds derived text of work captures only. | ADR-0001 decision 12, ADR-0002 |
 | NFR-2 | The dependency rule of `CLAUDE.md`: only `src/sources/` imports a source SDK, enforced by a `no-restricted-imports` lint rule. | CLAUDE.md |
-| NFR-3 | Unit tests cover every transition and one rejected event per state of `05-state-capture.md` (T-1 to T-8, T-10), the UC3 and tag rules (T-9, T-11 to T-13), the durability of final statuses at the source (T-14) and the id-only addressing (T-15). | global testing rule |
+| NFR-3 | Unit tests cover every transition and one rejected event per state of `05-state-capture.md` (T-1 to T-8, T-10), the UC3 and tag rules (T-11 to T-13; T-9 dropped by ADR-0004), the durability of final statuses at the source (T-14) and the id-only addressing (T-15). | global testing rule |
