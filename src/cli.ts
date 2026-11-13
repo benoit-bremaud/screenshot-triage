@@ -3,6 +3,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve as resolvePath, 
 import { parseArgs } from 'node:util';
 
 import { EXIT_INTERNAL, EXIT_OK, EXIT_USAGE, UsageError, type CommandContext } from './commands/context.js';
+import { archive } from './commands/archive.js';
 import { doubt, file, resolve } from './commands/decide.js';
 import { extract, notes, purge } from './commands/extract.js';
 import { scan } from './commands/scan.js';
@@ -34,6 +35,7 @@ export const USAGE = [
   '          (personal and delete need --source; work ignores --dry-run; triaged: personal or delete)',
   '  extract <id> [--dry-run]                      sheet JSON on stdin',
   '  purge   --source <dir> [--dry-run]            delete the extracted captures and their duplicates',
+  '  archive --source <dir> [--dry-run]            move the triaged captures and their duplicates to Archive/',
   '  notes   --skills-dir <dir>                    uncited rules per target skill, from origin/main',
   '  status  [--json]',
   '  tags',
@@ -64,7 +66,7 @@ const isParseArgsError = (error: unknown): error is Error =>
 
 /** Commands that take a capture id; the others take no positional argument. */
 const ID_COMMANDS: ReadonlySet<string> = new Set(['file', 'doubt', 'resolve', 'extract']);
-const COMMANDS: ReadonlySet<string> = new Set([...ID_COMMANDS, 'scan', 'purge', 'notes', 'status', 'tags']);
+const COMMANDS: ReadonlySet<string> = new Set([...ID_COMMANDS, 'scan', 'purge', 'archive', 'notes', 'status', 'tags']);
 
 const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => {
   const { values, positionals } = parseArgs({
@@ -103,11 +105,11 @@ const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => 
   }
   if (values.source !== undefined) await assertDisjoint(values.source, [values.data, values.knowledge]);
   const index = await CaptureIndex.load(join(values.data, 'index.jsonl'));
-  // Only a command that will act on the source pins it: `scan`, `purge`, and `resolve personal|delete` on a
+  // Only a command that will act on the source pins it: `scan`, `purge`, `archive`, and `resolve personal|delete` on a
   // doubtful or triaged capture. A mistyped --source on any other command, or a rejected resolve, locks nothing.
   const resolvable = ['doubtful', 'triaged'].includes(index.byId(id ?? '')?.status ?? '');
   const actsOnSource =
-    command === 'scan' || command === 'purge' || (command === 'resolve' && values.as !== 'work' && resolvable);
+    command === 'scan' || command === 'purge' || command === 'archive' || (command === 'resolve' && values.as !== 'work' && resolvable);
   if (values.source !== undefined && actsOnSource) await pinSource(values.source, values.data, values['dry-run']);
   const context: CommandContext = {
     dataDir: values.data,
@@ -133,6 +135,8 @@ const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => 
       return extract(context, id, await io.readStdin());
     case 'purge':
       return purge(context);
+    case 'archive':
+      return archive(context);
     case 'notes':
       return notes(context, values['skills-dir']);
     case 'status':

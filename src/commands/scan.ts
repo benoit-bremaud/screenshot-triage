@@ -59,6 +59,7 @@ export const scan = async (context: CommandContext): Promise<number> => {
         sameHash: context.index.byHash(contentHash),
         personalAtSource: finalIds.personal.has(id),
         trashedAtSource: finalIds.trashed.has(id),
+        archivedAtSource: finalIds.archived.has(id),
       },
     });
     // `scanRevisits` is the guard `transition` applies: a rejection here cannot happen.

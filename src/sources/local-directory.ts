@@ -11,6 +11,10 @@ import type { CaptureSource, FinalIds, SourceCapture } from './capture-source.js
 export const PERSONAL_FOLDER = 'Personnel';
 /** Source subfolder acting as the trash: restorable, ids listed only. */
 export const TRASH_FOLDER = '.trash';
+/** Source subfolder acting as the private archive of triaged captures (ADR-0004): ids listed only. */
+export const ARCHIVE_FOLDER = 'Archive';
+
+const FINAL_FOLDERS: ReadonlySet<string> = new Set([PERSONAL_FOLDER, TRASH_FOLDER, ARCHIVE_FOLDER]);
 
 /** Final folders hold `<id>.<ext>` names with a whitelisted image extension; anything else there is ignored. */
 const idOfName = (fileName: string): string | undefined => {
@@ -20,7 +24,7 @@ const idOfName = (fileName: string): string | undefined => {
 };
 
 /**
- * Brick 2 source: a directory of screenshots. `Personnel/` and `.trash/` are the durable
+ * Brick 2 source: a directory of screenshots. `Personnel/`, `.trash/` and `Archive/` are the durable
  * record of final statuses, skipped by `listCaptures`, their content never read.
  */
 export class LocalDirectorySource implements CaptureSource {
@@ -37,7 +41,7 @@ export class LocalDirectorySource implements CaptureSource {
     for (const entry of entries) {
       const path = join(dir, entry.name);
       if (entry.isDirectory()) {
-        const top = dir === this.root && (entry.name === PERSONAL_FOLDER || entry.name === TRASH_FOLDER);
+        const top = dir === this.root && FINAL_FOLDERS.has(entry.name);
         if (!top) await this.walk(path, into);
         continue;
       }
@@ -70,10 +74,15 @@ export class LocalDirectorySource implements CaptureSource {
     await this.moveInto(TRASH_FOLDER, ref, target);
   }
 
+  async archive(ref: string, target: SourceTarget): Promise<void> {
+    await this.moveInto(ARCHIVE_FOLDER, ref, target);
+  }
+
   async finalIds(): Promise<FinalIds> {
     return {
       personal: await this.idsIn(PERSONAL_FOLDER),
       trashed: await this.idsIn(TRASH_FOLDER),
+      archived: await this.idsIn(ARCHIVE_FOLDER),
     };
   }
 

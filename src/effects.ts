@@ -107,6 +107,8 @@ const run = async (effect: Effect, deps: EffectDeps): Promise<void> => {
       return requireSource(deps).markPersonal(effect.ref, effect.target);
     case 'source-trash':
       return requireSource(deps).trash(effect.ref, effect.target);
+    case 'source-archive':
+      return requireSource(deps).archive(effect.ref, effect.target);
     case 'log-append':
       return deps.log.append(effect.line);
     case 'index-write':

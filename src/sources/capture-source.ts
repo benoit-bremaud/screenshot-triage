@@ -12,10 +12,11 @@ export interface SourceCapture {
   readonly ocrText?: string;
 }
 
-/** Ids the source holds as final: `Personnel/` and `.trash/` membership, content never read. */
+/** Ids the source holds as final: `Personnel/`, `.trash/` and `Archive/` membership, content never read. */
 export interface FinalIds {
   readonly personal: ReadonlySet<string>;
   readonly trashed: ReadonlySet<string>;
+  readonly archived: ReadonlySet<string>;
 }
 
 /**
@@ -35,6 +36,8 @@ export interface CaptureSource {
   markPersonal(ref: string, target: SourceTarget): Promise<void>;
   /** Same contract as `markPersonal`, into the trash. */
   trash(ref: string, target: SourceTarget): Promise<void>;
-  /** Ids only, from `Personnel/` and `.trash/` membership: the two first `scan` guards read this (REQ-5). */
+  /** Same contract as `markPersonal`, into the private archive (ADR-0004). */
+  archive(ref: string, target: SourceTarget): Promise<void>;
+  /** Ids only, from `Personnel/`, `.trash/` and `Archive/` membership: the three first `scan` guards read this (REQ-5). */
   finalIds(): Promise<FinalIds>;
 }

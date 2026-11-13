@@ -23,6 +23,7 @@ flowchart LR
     subgraph Triage ["Triage domain"]
       UC1(["UC1 Triage new captures"])
       UC2(["UC2 Decide the fate of a doubtful capture"])
+      UC7(["UC7 Archive the triaged captures"])
     end
     subgraph Review ["Review domain"]
       UC3(["UC3 Review the triage status"])
@@ -31,6 +32,8 @@ flowchart LR
   Owner --- UC1
   Owner --- UC2
   Owner --- UC3
+  Owner --- UC7
+  UC7 --- Source
   UC1 --- Source
   UC1 --- Model
   UC2 --- Source
@@ -42,8 +45,8 @@ flowchart LR
 
 | Id | Label | Kind | Goals |
 |---|---|---|---|
-| `Owner` | Owner — the person whose phone takes the screenshots | primary, human | UC1, UC2, UC3 |
-| `Source` | Capture source — a local directory in brick 2, the Immich server from brick 3 | supporting, system | provides the captures and, from brick 3, their OCR text; receives the personal mark and trash requests |
+| `Owner` | Owner — the person whose phone takes the screenshots | primary, human | UC1, UC2, UC3, UC7 |
+| `Source` | Capture source — a local directory in brick 2, the Immich server from brick 3 | supporting, system | provides the captures and, from brick 3, their OCR text; receives the personal mark, trash and archive requests |
 | `Model` | Vision model — the Claude Code session running `/screenshots` (ADR-0002) | supporting, system | classifies a capture into a domain and tags, or declares a doubt category, with its reasoning |
 
 ## Use cases
@@ -70,7 +73,7 @@ flowchart LR
 
 **Extensions**
 
-- 2a. The content hash is already in the index: system records the capture as `duplicate` with a pointer to the original, copies nothing; when the original is already `personal` or `deleted`, the row takes that status and the source receives the same action at once; the index is not the only witness: a hash whose `<id>.<ext>` sits in the source's `Personnel/` (Immich: album membership) is personal too, so a lost `data/` changes nothing; a copy is re-trashed only while its id is still in `.trash/`, so a file the owner restored from the trash is triaged again as new; with `--dry-run` nothing is copied or written and every effect is printed; resumes at 6.
+- 2a. The content hash is already in the index: system records the capture as `duplicate` with a pointer to the original, copies nothing; when the original is already `personal`, `deleted` or `archived`, the row takes that status and the source receives the same action at once; the index is not the only witness: a hash whose `<id>.<ext>` sits in the source's `Personnel/` (Immich: album membership) is personal too, so a lost `data/` changes nothing; a copy is re-trashed (re-archived) only while its id is still in `.trash/` (`Archive/`), so a file the owner restored from the trash is triaged again as new; with `--dry-run` nothing is copied or written and every effect is printed; resumes at 6.
 - 2b. The bytes are not a whitelisted image: system rejects the capture and reports it on every `scan` (intended: nothing about a non-image is recorded); resumes at 6.
 - 4a. The vision model declares a doubt (category `personal-suspected`, `unreadable` or `off-topic`): system records the row as `doubtful` with the category and keeps the model's reasoning in the index only (git-ignored); the batch continues; **extension point "Doubt"** → UC2 after the batch.
 - 4b. The vision model proposes a tag absent from the list: system accepts it if it is kebab-case English and not already present; the model names the existing tags it considered (the semantic judgement stays with the model); the new tag is listed in the report.
@@ -113,8 +116,32 @@ flowchart LR
 - **Level**: user goal, brief: the owner runs `status` and reads counts per status and domain, the doubtful captures awaiting an answer (the list UC2 iterates), the tags with their capture counts (a tag at five captures is flagged as a new-skill candidate; whether a skill already covers it is the owner's call with the skill list of `~/.claude`), and the `other` captures whose `takenAt` is older than 90 days.
 - **Business rules**: REQ-7.
 
+### UC7 — Archive the triaged captures (status: planned)
+
+- **Level**: user goal
+- **Primary actor**: Owner
+- **Stakeholders & interests**: Owner — the camera roll is emptied of every work and `other` capture in one pass, nothing is deleted, the extraction can run later.
+- **Preconditions**: the source is pinned; at least one capture is `triaged`.
+- **Minimal guarantee**: no file is deleted; a capture whose source call fails keeps `triaged`; with `--dry-run` nothing changes.
+- **Success guarantee**: every triaged capture and its duplicates sit in the source's private archive (local `Archive/<id>.<ext>`, Immich album from brick 3) with status `archived`; the local copy stays under `data/<domain>/`.
+- **Trigger**: the skill, after the filings of a batch, or the CLI `archive --source DIR`.
+
+**Main success scenario**
+
+1. Owner (through the skill) asks to archive the batch.
+2. System takes every `triaged` row, removes a sheet a crashed `extract` left, archives its duplicates then the capture at the source, and records each row `archived`, the original last.
+3. System reports the number archived and the failed ids.
+
+**Extensions**
+
+- 2a. The source call fails: the row keeps `triaged` with an error flag, the run goes on and exits 3; a re-run completes it.
+- 2b. `--dry-run`: system prints every effect in order and changes nothing.
+- 2c. Later, a copy of an archived capture comes back to the roll: `scan` archives it at once while its id is still in `Archive/` (UC1 ext. 2a).
+
+**Business rules**: REQ-3, REQ-6, REQ-18. See `02-sequence-archive.md`, ADR-0004.
+
 ## Notes
 
-- UC1 never deletes on its own judgement: a file is removed by a UC2 effect (owner answer, which also settles the duplicates), by a brick 4 effect (the purge after the sheet, or a duplicate whose original it purged), by an owner answer on a triaged capture (UC4 ext. 3b, REQ-16), or by ext. 2a, which only applies an earlier personal or delete answer to a returning copy. Reviewers should check that no other step of UC1 removes a file, and that `scan --dry-run` covers 2a (REQ-6).
+- UC1 never deletes on its own judgement: a file is removed by a UC2 effect (owner answer, which also settles the duplicates), by a brick 4 effect (the purge after the sheet, or a duplicate whose original it purged), by an owner answer on a triaged capture (UC4 ext. 3b, REQ-16), or by ext. 2a; UC7 moves a triaged capture into the private archive, which is not a deletion. Ext. 2a only applies an earlier personal, delete or archive outcome to a returning copy. Reviewers should check that no other step of UC1 removes a file, and that `scan --dry-run` covers 2a (REQ-6).
 - "Receive the doubt question" is not a use case; the owner's goal is UC2.
 - Open question for brick 3: whether a personal answer also removes the asset from the Screenshots album (the album move may suffice).

@@ -26,14 +26,14 @@ sequenceDiagram
   CLI->>Store: load index (known refs, known hashes)
   Store-->>CLI: index
   CLI->>Source: finalIds()
-  Source-->>CLI: ids in Personnel/ and .trash/ (names only, never bytes)
+  Source-->>CLI: ids in Personnel/, .trash/ and Archive/ (names only, never bytes)
   CLI->>Source: listCaptures()
   Source-->>CLI: captures (ref, name, takenAt, size, ocrText?)
   loop for each capture whose ref is not in the index, or whose row is deleted or personal (restored or re-synced)
     CLI->>Source: read(ref)
     Source-->>CLI: bytes
-    alt personal (index row or ID in Personnel/), or ID still in .trash/ (checked first)
-      CLI->>Source: markPersonal(ref, target) or trash(ref, target), target = ID.EXT + contentHash + size + takenAt; a changed file is hashed and moved only if its bytes match, an existing target removes the copy (or printed with --dry-run)
+    alt personal (index row or ID in Personnel/), or ID still in .trash/ or Archive/ (checked first)
+      CLI->>Source: markPersonal(ref, target), trash(ref, target) or archive(ref, target), target = ID.EXT + contentHash + size + takenAt; a changed file is hashed and moved only if its bytes match, an existing target removes the copy (or printed with --dry-run)
       CLI->>Store: upsert(ref, status = original's status, duplicateOf)
     else hash already indexed, original not final
       CLI->>Store: upsert(ref, status = duplicate, duplicateOf)
@@ -57,7 +57,7 @@ sequenceDiagram
     CLI-->>Skill: ok
   end
   Skill-->>Owner: batch report (per domain, new tags, doubtful held)
-  Note over Owner,Skill: doubtful held → continues in sd — UC2 (SEQ-resolve-doubt)
+  Note over Owner,Skill: triaged → archived in sd — UC7 (SEQ-archive); doubtful held → sd — UC2 (SEQ-resolve-doubt)
 ```
 
 ## Notes

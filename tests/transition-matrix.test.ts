@@ -25,7 +25,7 @@ const decision: FileDecision = {
 };
 const doubtDecision: DoubtDecision = { promptVersion: 'triage-v1', model: 'm', reasoning: 'Text.', category: 'off-topic' };
 
-const COMMANDS = ['file', 'doubt', 'resolve', 'extract', 'purge'] as const;
+const COMMANDS = ['file', 'doubt', 'resolve', 'extract', 'purge', 'archive'] as const;
 
 const events: Record<(typeof COMMANDS)[number], Event> = {
   file: { type: 'file', decision, timestamp: '2026-11-06T12:00:00.000Z' },
@@ -33,6 +33,7 @@ const events: Record<(typeof COMMANDS)[number], Event> = {
   resolve: { type: 'resolve', answer: 'delete', duplicates: [] },
   extract: { type: 'extract', markdown: '# sheet', gem: false },
   purge: { type: 'purge', duplicates: [] },
+  archive: { type: 'archive', duplicates: [] },
 };
 
 /** The legal (status, command) pairs of 05-state-capture; every other pair is rejected (REQ-8). */
@@ -45,6 +46,7 @@ const legal = new Set([
   'triaged:extract',
   'extracted:extract',
   'extracted:purge',
+  'triaged:archive',
 ]);
 
 const cases = STATUSES.flatMap((status) =>

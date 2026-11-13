@@ -7,13 +7,14 @@ export const STATUSES = [
   'personal',
   'deleted',
   'extracted',
+  'archived',
 ] as const;
 
 /** One capture status. */
 export type Status = (typeof STATUSES)[number];
 
 /** Final statuses never re-enter the machine (glossary "Final status"). */
-export const FINAL_STATUSES: readonly Status[] = ['personal', 'deleted'];
+export const FINAL_STATUSES: readonly Status[] = ['personal', 'deleted', 'archived'];
 
 /** True for a status that never re-enters the machine. */
 export const isFinal = (status: Status): boolean => FINAL_STATUSES.includes(status);
