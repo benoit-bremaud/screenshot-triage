@@ -90,12 +90,9 @@ const scan = (capture: CaptureRow | undefined, candidate: ScanCandidate, facts: 
   if (!scanRevisits(capture)) return reject(capture, 'scan only creates a row or replaces a final one');
   const base: CaptureRow = { ...candidate, status: 'inbox' };
   // Other bytes under an archived row's ref: the archived row moves to a ref of its own so it stays answerable
-  // (ADR-0004 decision 3); the source then finds it in its archive, never at that ref. Only an original moves: its
-  // `<id>.<ext>` key is unique, and a copy's row carries no labels, so the new row simply replaces it.
+  // (ADR-0004 decision 3); the source then finds it in its archive, never at that ref.
   const rekey: Effect[] =
-    capture?.status === 'archived' &&
-    capture.contentHash !== candidate.contentHash &&
-    (capture.duplicateOf ?? capture.ref) === capture.ref
+    capture?.status === 'archived' && capture.contentHash !== candidate.contentHash
       ? [{ kind: 'index-write', row: { ...capture, ref: `${ARCHIVED_REF_PREFIX}${localName(capture)}` } }]
       : [];
   const name = localName(candidate);

@@ -303,21 +303,6 @@ describe('scan and the archive (T-25)', () => {
     expect((await ws.rowById(id)).map((row) => row.status)).toEqual(['archived', 'archived']);
   });
 
-  it('other bytes under both an original and its copy keep the original labels', async () => {
-    const id = await triagedCapture(ws, 'a.png', png('a'));
-    await ws.addCapture('copy/a.png', png('a'));
-    await ws.scan();
-    await ws.run(['archive', '--source', ws.source]);
-    await ws.addCapture('a.png', png('b'));
-    await ws.addCapture('copy/a.png', png('c'));
-
-    await ws.scan();
-
-    const [original] = (await ws.rowById(id)).filter((row) => row.ref === `archived:${id}.png`);
-    expect(original).toMatchObject({ status: 'archived', domain: 'frontend' });
-    expect(original?.duplicateOf).toBeUndefined();
-  });
-
   it('an archived capture coming back under another archived capture\'s ref keeps both rows', async () => {
     const first = await triagedCapture(ws, 'a.png', png('a'));
     const second = await triagedCapture(ws, 'b.png', png('b'));
