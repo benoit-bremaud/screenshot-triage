@@ -2,6 +2,15 @@
 
 Chronological logbook of decisions and events, complementing `git log`. Newest entry first.
 
+## 2026-11-13 — Archive work and other captures out of the camera roll (#15)
+
+- Reframe of 2026-11-13: the main goal is to empty the camera roll in one `/screenshots` pass; extraction runs later. [ADR-0004](docs/architecture/decisions/0004-archive-work-captures-out-of-the-camera-roll.md): `archived` is a third final status (A 460 vs B 365, C 295), one batch command over every `triaged` row (A 440, tie with C broken by YAGNI), `resolve personal|delete` still settles an archived capture (A 440 vs B 360), local folder `.archive/` (A 410 vs B 380). The 90-day reminder of `other` (T-9) is dropped; the CLAUDE.md deletion invariant is amended.
+- `archive --source <dir> [--dry-run]`: duplicates first, then the original, local copy kept, nothing logged; prints `{archived, failed, dryRun}`, exit 3 on a failure (row flagged, a re-run completes it). `scan` re-archives a returning copy while `.archive/` holds its id. Copies follow their original by content hash; an archived row whose ref gets other bytes is re-keyed `archived:<id>.<ext>`.
+- Five adversarial rounds found eight Must (among them a personal capture left in `.archive/` after a failed archive, and another capture's answer trashing an archived one); all fixed. Codex PR review: one P2 (archived row kept on re-sync only for the same bytes), fixed.
+- First SonarQube scan (`sonar-project.properties` added): passed; 2 S9382 "await in loop" in `archive` accepted by the owner (sequential on purpose).
+- Merged as `c4dfa86` (PR #16) with the owner's `MERGE_GATE_WAIVER`: doc coverage not measured, no attestation script. Tests T-24, T-25 (239 in all, coverage 96.4 %).
+- Missed earlier: brick 4 code (#4) was merged as `8adfa4d` (PR #12) on 2026-11-07.
+
 ## 2026-11-07 — Brick 4 code: extract, purge and notes (#4)
 
 - `src/extract/` (pure, NFR-6 lint block): the sheet payload schema (REQ-10, REQ-11, NFR-4: lengths, control and invisible characters, `https` evidence, handle), the renderer that escapes the Markdown punctuation able to open a link, image, heading, block, table, autolink or math span, and HTML, and the parser that reads rules back from their `[<id>#<rank>]` token.
