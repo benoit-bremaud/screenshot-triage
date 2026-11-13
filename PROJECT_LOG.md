@@ -2,6 +2,11 @@
 
 Chronological logbook of decisions and events, complementing `git log`. Newest entry first.
 
+## 2026-11-13 — Archive review follow-up: docs and edge-case tests (#22)
+
+- PR #23 merged as `663f6f2` with the owner's `MERGE_GATE_WAIVER` (no attestation script): ADR-0004 sensitivity on all three axes, resolve takes the `duplicate` or `archived` rows of a hash (ADR-0002, `02-sequence-resolve-doubt`), T-22/T-25 trace aligned, tests for the `invalid local name` guard and resolve after a failed archive whose copy ref was replaced (241 tests, 96.5 %, SonarQube passed, Codex no finding).
+- A re-key-only-originals fix (517f130) was reverted after review: it left a personal capture in `.archive/`. #22 stays open (labels lost when an original and its copy are both replaced); #24 files four pre-existing archive edge cases (purge after a failed archive, re-key collisions, stale `duplicateOf`).
+
 ## 2026-11-13 — Archive work and other captures out of the camera roll (#15)
 
 - Reframe of 2026-11-13: the main goal is to empty the camera roll in one `/screenshots` pass; extraction runs later. [ADR-0004](docs/architecture/decisions/0004-archive-work-captures-out-of-the-camera-roll.md): `archived` is a third final status (A 460 vs B 365, C 295), one batch command over every `triaged` row (A 440, tie with C broken by YAGNI), `resolve personal|delete` still settles an archived capture (A 440 vs B 360), local folder `.archive/` (A 410 vs B 380). The 90-day reminder of `other` (T-9) is dropped; the CLAUDE.md deletion invariant is amended.
