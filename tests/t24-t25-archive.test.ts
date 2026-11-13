@@ -302,4 +302,17 @@ describe('scan and the archive (T-25)', () => {
     expect(await ws.list('source', '.archive')).toEqual([`${id}.png`]);
     expect((await ws.rowById(id)).map((row) => row.status)).toEqual(['archived', 'archived']);
   });
+
+  it('an archived capture coming back under another archived capture\'s ref keeps both rows', async () => {
+    const first = await triagedCapture(ws, 'a.png', png('a'));
+    const second = await triagedCapture(ws, 'b.png', png('b'));
+    await ws.run(['archive', '--source', ws.source]);
+    await ws.addCapture('a.png', png('b'));
+
+    await ws.scan();
+
+    expect(await ws.rowById(first)).toEqual([expect.objectContaining({ ref: `archived:${first}.png`, status: 'archived' })]);
+    expect((await ws.rowById(second)).map((row) => row.ref).sort()).toEqual(['a.png', 'b.png']);
+    expect(await ws.exists('source', 'a.png')).toBe(false);
+  });
 });

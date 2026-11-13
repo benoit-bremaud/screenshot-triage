@@ -119,9 +119,10 @@ const scan = (capture: CaptureRow | undefined, candidate: ScanCandidate, facts: 
   }
   if (facts.archivedAtSource) {
     const archivedOriginal = facts.sameHash.find((row) => row.status === 'archived');
-    // The same ref re-synced keeps its archived row: its domain and tags are what a later extraction reads.
+    // The same bytes re-synced under the same ref keep their archived row: its domain and tags are what a later
+    // extraction reads. Other bytes under that ref get their own row; the archived one was re-keyed above.
     const row: CaptureRow =
-      capture?.status === 'archived'
+      capture?.status === 'archived' && capture.contentHash === candidate.contentHash
         ? capture
         : { ...base, status: 'archived', duplicateOf: archivedOriginal?.ref ?? candidate.ref };
     return ok('archived', [
