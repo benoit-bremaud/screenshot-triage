@@ -113,7 +113,7 @@ flowchart LR
 
 ### UC3 — Review the triage status (status: planned)
 
-- **Level**: user goal, brief: the owner runs `status` and reads counts per status and domain, the doubtful captures awaiting an answer (the list UC2 iterates), the tags with their capture counts (a tag at five captures is flagged as a new-skill candidate; whether a skill already covers it is the owner's call with the skill list of `~/.claude`), (the 90-day reminder on `other` is dropped by ADR-0004).
+- **Level**: user goal, brief: the owner runs `status` and reads counts per status and domain, the doubtful captures awaiting an answer (the list UC2 iterates), the tags with their capture counts (a tag at five captures is flagged as a new-skill candidate; whether a skill already covers it is the owner's call with the skill list of `~/.claude`); the 90-day reminder on `other` is dropped by ADR-0004.
 - **Business rules**: REQ-7.
 
 ### UC7 — Archive the triaged captures (status: planned)

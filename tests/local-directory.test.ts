@@ -33,6 +33,12 @@ describe('LocalDirectorySource', () => {
     expect((await source.finalIds()).trashed).toEqual(new Set(['abcdef012345']));
   });
 
+  it('refuses a local name that is not <id>.<ext> before moving anything', async () => {
+    await expect(source.archive('a.png', { ...target, localName: '../x.png' })).rejects.toThrow('invalid local name');
+
+    expect(await readFile(join(root, 'a.png'), 'utf8')).toBe('bytes');
+  });
+
   it('a re-run after the file is gone is a no-op (crash between two effects)', async () => {
     await source.trash('a.png', target);
 

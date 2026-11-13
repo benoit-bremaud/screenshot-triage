@@ -45,7 +45,7 @@ Drivers: minimal interaction 40, consistency with the CLI 30, fine control 30.
 | Fine control (30) | 3 | 5 | 5 |
 | **Total /500** | **440** | 350 | 440 |
 
-A and C tie; A wins by YAGNI (C adds code no caller needs: the owner corrects a filing with `file` or answers `resolve` before the archive runs). Sensitivity (other weights scaled proportionally): B leads only with fine control at about 52 or more. **Outcome: A.** `archive` prints `{archived, failed, dryRun}`: `archived` the number of originals archived, `failed` their ids; a failed capture keeps `triaged` with an error flag, the run goes on and exits 3; a re-run completes it.
+A and C tie; A wins by YAGNI (C adds code no caller needs: the owner corrects a filing with `file` or answers `resolve` before the archive runs). Sensitivity (other weights scaled proportionally): C overtakes A when fine control weighs more than 30 or consistency less than 30; B leads only when interaction weighs about 14 or less. **Outcome: A.** `archive` prints `{archived, failed, dryRun}`: `archived` the number of originals archived, `failed` their ids; a failed capture keeps `triaged` with an error flag, the run goes on and exits 3; a re-run completes it.
 
 ## Decision 3 — correcting an archived capture
 

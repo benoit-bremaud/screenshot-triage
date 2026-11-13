@@ -34,13 +34,13 @@ sequenceDiagram
     else personal
       Skill->>CLI: resolve ID --as personal
       CLI->>CLI: delete data/inbox/ID.EXT
-      CLI->>Source: markPersonal(ref, target), then of every duplicateOf row with its index write
+      CLI->>Source: markPersonal(ref, target), then of every `duplicate` or `archived` row with the same content hash with its index write
       Source-->>CLI: done (local directory: moved to Personnel/ID.EXT, a duplicate removed when the name exists)
       CLI->>Store: upsert(primary, status = personal, reasoning cleared), last
     else delete
       Skill->>CLI: resolve ID --as delete
       CLI->>CLI: delete data/inbox/ID.EXT
-      CLI->>Source: trash(ref, target), then of every duplicateOf row with its index write
+      CLI->>Source: trash(ref, target), then of every `duplicate` or `archived` row with the same content hash with its index write
       Source-->>CLI: done (local directory: moved to .trash/ID.EXT, a duplicate removed when the name exists)
       CLI->>Store: upsert(primary, status = deleted), last
     end
