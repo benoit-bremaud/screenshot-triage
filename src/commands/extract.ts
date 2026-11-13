@@ -75,7 +75,7 @@ export const purge = async (context: CommandContext): Promise<number> => {
       context.err(`purge of ${id} skipped: its sheet is missing; extract it again first`);
       continue;
     }
-    const result = transition(row, { type: 'purge', duplicates: context.index.duplicatesOf(row.ref) });
+    const result = transition(row, { type: 'purge', duplicates: context.index.duplicatesOf(row) });
     if (!result.ok) continue;
     try {
       await runEffects(result.effects, context);

@@ -255,17 +255,23 @@ describe('scan and the archive (T-25)', () => {
     expect(await ws.list('data', 'design')).toEqual([`${id}.png`]);
   });
 
-  it('a triaged capture whose copy alone reached .archive/ is answered from its ref', async () => {
+  // A read-only folder does not stop root, so the failure cannot be provoked that way.
+  it.skipIf(process.getuid?.() === 0)('after a failed archive, resolve personal takes the copy already archived too', async () => {
     const id = await triagedCapture(ws, 'a.png', png('a'));
     await ws.addCapture('copy/a.png', png('a'));
     await ws.scan();
-    await mkdir(join(ws.source, '.archive'), { recursive: true });
-    await rename(join(ws.source, 'copy', 'a.png'), join(ws.source, '.archive', `${id}.png`));
+    await mkdir(join(ws.source, '.archive'));
+    await chmod(ws.source, 0o555);
+    const failed = await ws.run(['archive', '--source', ws.source]);
+    await chmod(ws.source, 0o755);
+    expect(failed.code).toBe(3);
 
     await ws.resolve(id, 'personal');
 
     expect(await ws.exists('source', 'a.png')).toBe(false);
+    expect(await ws.list('source', '.archive')).toEqual([]);
     expect(await ws.list('source', 'Personnel')).toEqual([`${id}.png`]);
+    expect((await ws.rowById(id)).map((row) => row.status)).toEqual(['personal', 'personal']);
   });
 
   it('other bytes under an archived ref keep the archived row answerable', async () => {
@@ -281,5 +287,19 @@ describe('scan and the archive (T-25)', () => {
     expect((await ws.rowById(other))[0]?.status).toBe('inbox');
     expect(await ws.list('source', '.trash')).toEqual([`${id}.png`]);
     expect(await ws.exists('source', 'a.png')).toBe(true);
+  });
+
+  it("another capture's answer under a reused ref never moves the archived one", async () => {
+    const id = await triagedCapture(ws, 'a.png', png('a'));
+    await ws.run(['archive', '--source', ws.source]);
+    await ws.addCapture('back/a.png', png('a'));
+    await ws.scan();
+    const other = await triagedCapture(ws, 'a.png', png('b'));
+    await ws.run(['archive', '--source', ws.source]);
+
+    await ws.resolve(other, 'delete');
+
+    expect(await ws.list('source', '.archive')).toEqual([`${id}.png`]);
+    expect((await ws.rowById(id)).map((row) => row.status)).toEqual(['archived', 'archived']);
   });
 });

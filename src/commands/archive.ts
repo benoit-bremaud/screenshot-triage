@@ -17,7 +17,7 @@ export const archive = async (context: CommandContext): Promise<number> => {
   // Sequential on purpose, like `purge`: a crash leaves at most one capture half-archived.
   for (const row of triaged) {
     const id = idOf(row.contentHash);
-    const result = transition(row, { type: 'archive', duplicates: context.index.duplicatesOf(row.ref) });
+    const result = transition(row, { type: 'archive', duplicates: context.index.duplicatesOf(row) });
     // The rows are filtered to `triaged`, the one status `archive` accepts: a rejection cannot happen.
     if (!result.ok) throw new Error(result.reason);
     try {

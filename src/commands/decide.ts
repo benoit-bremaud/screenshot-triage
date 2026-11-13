@@ -67,7 +67,9 @@ export const resolve = (context: CommandContext, id: string | undefined, answer:
   const row = rowForId(context, id);
   if (answer === undefined || !isAnswer(answer)) throw new UsageError('--as must be work, personal or delete');
   if (answer !== 'work') requireSource(context);
-  // An archived capture's copies were archived with it, so they carry `archived` (ADR-0004).
-  const duplicates = row === undefined ? [] : context.index.duplicatesOf(row.ref, row.status === 'archived' ? 'archived' : 'duplicate');
+  // Archived copies follow too: an archived capture's copies were archived with it, and a failed `archive` can
+  // leave a triaged capture with copies already in the archive (ADR-0004).
+  const duplicates =
+    row === undefined ? [] : context.index.duplicatesOf(row, row.status === 'archived' ? ['archived'] : ['duplicate', 'archived']);
   return apply(context, id ?? '', row, { type: 'resolve', answer, duplicates }, answer !== 'work' && context.dryRun);
 };

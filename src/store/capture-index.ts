@@ -65,8 +65,14 @@ export class CaptureIndex {
     return [...this.all()].reverse().find((row) => idOf(row.contentHash) === id);
   }
 
-  duplicatesOf(ref: string, status: Status = 'duplicate'): readonly CaptureRow[] {
-    return this.all().filter((row) => row.duplicateOf === ref && row.ref !== ref && row.status === status);
+  /**
+   * The other rows holding the original's bytes with one of the statuses. Matched on the content hash, not on
+   * `duplicateOf`, so a copy never follows another capture that later took its original's ref (ADR-0004).
+   */
+  duplicatesOf(original: CaptureRow, statuses: readonly Status[] = ['duplicate']): readonly CaptureRow[] {
+    return this.all().filter(
+      (row) => row.contentHash === original.contentHash && row.ref !== original.ref && statuses.includes(row.status),
+    );
   }
 
   /** Records the row in memory only: what `--dry-run` sees of its own earlier effects. */
