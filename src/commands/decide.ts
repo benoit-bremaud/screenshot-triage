@@ -60,13 +60,14 @@ export const doubt = (context: CommandContext, id: string | undefined, stdin: st
 
 /**
  * `resolve <id> --as work|personal|delete [--dry-run]` (SEQ-resolve-doubt); personal and delete also on a
- * triaged capture (REQ-16). `work` has no destructive
+ * triaged capture (REQ-16) and on an archived one (ADR-0004). `work` has no destructive
  * effect, so it ignores `--dry-run` and needs no `--source`.
  */
 export const resolve = (context: CommandContext, id: string | undefined, answer: string | undefined): Promise<number> => {
   const row = rowForId(context, id);
   if (answer === undefined || !isAnswer(answer)) throw new UsageError('--as must be work, personal or delete');
   if (answer !== 'work') requireSource(context);
-  const duplicates = row === undefined ? [] : context.index.duplicatesOf(row.ref);
+  // An archived capture's copies were archived with it, so they carry `archived` (ADR-0004).
+  const duplicates = row === undefined ? [] : context.index.duplicatesOf(row.ref, row.status === 'archived' ? 'archived' : 'duplicate');
   return apply(context, id ?? '', row, { type: 'resolve', answer, duplicates }, answer !== 'work' && context.dryRun);
 };

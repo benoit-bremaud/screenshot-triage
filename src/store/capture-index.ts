@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 
 import { isMissing } from '../fs.js';
 import { idOf, isAddressable, type CaptureRow } from '../triage/capture.js';
+import type { Status } from '../triage/status.js';
 
 /**
  * The private index `data/index.jsonl`, one row per ref (ADR-0002 decision 2).
@@ -48,13 +49,24 @@ export class CaptureIndex {
     return this.all().find((row) => idOf(row.contentHash) === id && isAddressable(row));
   }
 
+  /**
+   * The row a command on an id acts on: the addressable one, else the archived original (its copies point at it,
+   * ADR-0004), else the last row carrying the id, for reporting its status.
+   */
+  forCommand(id: string): CaptureRow | undefined {
+    const archived = this.all().find(
+      (row) => idOf(row.contentHash) === id && row.status === 'archived' && (row.duplicateOf ?? row.ref) === row.ref,
+    );
+    return this.byId(id) ?? archived ?? this.latestById(id);
+  }
+
   /** The last row carrying an id, addressable or not: for reporting the current status of a rejected command. */
   latestById(id: string): CaptureRow | undefined {
     return [...this.all()].reverse().find((row) => idOf(row.contentHash) === id);
   }
 
-  duplicatesOf(ref: string): readonly CaptureRow[] {
-    return this.all().filter((row) => row.duplicateOf === ref && row.status === 'duplicate');
+  duplicatesOf(ref: string, status: Status = 'duplicate'): readonly CaptureRow[] {
+    return this.all().filter((row) => row.duplicateOf === ref && row.ref !== ref && row.status === status);
   }
 
   /** Records the row in memory only: what `--dry-run` sees of its own earlier effects. */

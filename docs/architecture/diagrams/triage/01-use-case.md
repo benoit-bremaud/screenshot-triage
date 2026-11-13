@@ -73,7 +73,7 @@ flowchart LR
 
 **Extensions**
 
-- 2a. The content hash is already in the index: system records the capture as `duplicate` with a pointer to the original, copies nothing; when the original is already `personal`, `deleted` or `archived`, the row takes that status and the source receives the same action at once; the index is not the only witness: a hash whose `<id>.<ext>` sits in the source's `Personnel/` (Immich: album membership) is personal too, so a lost `data/` changes nothing; a copy is re-trashed (re-archived) only while its id is still in `.trash/` (`Archive/`), so a file the owner restored from the trash is triaged again as new; with `--dry-run` nothing is copied or written and every effect is printed; resumes at 6.
+- 2a. The content hash is already in the index: system records the capture as `duplicate` with a pointer to the original, copies nothing; when the original is already `personal`, `deleted` or `archived`, the row takes that status and the source receives the same action at once; the index is not the only witness: a hash whose `<id>.<ext>` sits in the source's `Personnel/` (Immich: album membership) is personal too, so a lost `data/` changes nothing; a copy is re-trashed (re-archived) only while its id is still in `.trash/` (`.archive/`), so a file the owner restored from the trash is triaged again as new; with `--dry-run` nothing is copied or written and every effect is printed; resumes at 6.
 - 2b. The bytes are not a whitelisted image: system rejects the capture and reports it on every `scan` (intended: nothing about a non-image is recorded); resumes at 6.
 - 4a. The vision model declares a doubt (category `personal-suspected`, `unreadable` or `off-topic`): system records the row as `doubtful` with the category and keeps the model's reasoning in the index only (git-ignored); the batch continues; **extension point "Doubt"** → UC2 after the batch.
 - 4b. The vision model proposes a tag absent from the list: system accepts it if it is kebab-case English and not already present; the model names the existing tags it considered (the semantic judgement stays with the model); the new tag is listed in the report.
@@ -113,7 +113,7 @@ flowchart LR
 
 ### UC3 — Review the triage status (status: planned)
 
-- **Level**: user goal, brief: the owner runs `status` and reads counts per status and domain, the doubtful captures awaiting an answer (the list UC2 iterates), the tags with their capture counts (a tag at five captures is flagged as a new-skill candidate; whether a skill already covers it is the owner's call with the skill list of `~/.claude`), and the `other` captures whose `takenAt` is older than 90 days.
+- **Level**: user goal, brief: the owner runs `status` and reads counts per status and domain, the doubtful captures awaiting an answer (the list UC2 iterates), the tags with their capture counts (a tag at five captures is flagged as a new-skill candidate; whether a skill already covers it is the owner's call with the skill list of `~/.claude`), (the 90-day reminder on `other` is dropped by ADR-0004).
 - **Business rules**: REQ-7.
 
 ### UC7 — Archive the triaged captures (status: planned)
@@ -123,7 +123,7 @@ flowchart LR
 - **Stakeholders & interests**: Owner — the camera roll is emptied of every work and `other` capture in one pass, nothing is deleted, the extraction can run later.
 - **Preconditions**: the source is pinned; at least one capture is `triaged`.
 - **Minimal guarantee**: no file is deleted; a capture whose source call fails keeps `triaged`; with `--dry-run` nothing changes.
-- **Success guarantee**: every triaged capture and its duplicates sit in the source's private archive (local `Archive/<id>.<ext>`, Immich album from brick 3) with status `archived`; the local copy stays under `data/<domain>/`.
+- **Success guarantee**: every triaged capture and its duplicates sit in the source's private archive (local `.archive/<id>.<ext>`, Immich album from brick 3) with status `archived`; the local copy stays under `data/<domain>/`.
 - **Trigger**: the skill, after the filings of a batch, or the CLI `archive --source DIR`.
 
 **Main success scenario**
@@ -136,7 +136,8 @@ flowchart LR
 
 - 2a. The source call fails: the row keeps `triaged` with an error flag, the run goes on and exits 3; a re-run completes it.
 - 2b. `--dry-run`: system prints every effect in order and changes nothing.
-- 2c. Later, a copy of an archived capture comes back to the roll: `scan` archives it at once while its id is still in `Archive/` (UC1 ext. 2a).
+- 2c. Later, a copy of an archived capture comes back to the roll: `scan` archives it at once while its id is still in `.archive/` (UC1 ext. 2a); the same ref re-synced keeps its archived row.
+- *a. Owner finds an archived capture is personal or confidential: `resolve personal|delete` settles it from the archive, every local copy deleted (ADR-0004 decision 3).
 
 **Business rules**: REQ-3, REQ-6, REQ-18. See `02-sequence-archive.md`, ADR-0004.
 

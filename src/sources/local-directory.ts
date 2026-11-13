@@ -12,7 +12,7 @@ export const PERSONAL_FOLDER = 'Personnel';
 /** Source subfolder acting as the trash: restorable, ids listed only. */
 export const TRASH_FOLDER = '.trash';
 /** Source subfolder acting as the private archive of triaged captures (ADR-0004): ids listed only. */
-export const ARCHIVE_FOLDER = 'Archive';
+export const ARCHIVE_FOLDER = '.archive';
 
 const FINAL_FOLDERS: ReadonlySet<string> = new Set([PERSONAL_FOLDER, TRASH_FOLDER, ARCHIVE_FOLDER]);
 
@@ -24,7 +24,7 @@ const idOfName = (fileName: string): string | undefined => {
 };
 
 /**
- * Brick 2 source: a directory of screenshots. `Personnel/`, `.trash/` and `Archive/` are the durable
+ * Brick 2 source: a directory of screenshots. `Personnel/`, `.trash/` and `.archive/` are the durable
  * record of final statuses, skipped by `listCaptures`, their content never read.
  */
 export class LocalDirectorySource implements CaptureSource {
@@ -107,8 +107,12 @@ export class LocalDirectorySource implements CaptureSource {
    * target exists the duplicate is removed instead, the bytes being identical.
    */
   private async moveInto(folder: string, ref: string, target: SourceTarget): Promise<void> {
-    const from = this.resolve(ref);
+    // The name comes from the private index: never a path, only `<id>.<ext>`.
+    if (idOfName(target.localName) === undefined) throw new Error('invalid local name');
     const destination = join(await this.finalFolder(folder), target.localName);
+    // An archived capture answered personal or delete later sits in `.archive/`, no longer at its ref (ADR-0004).
+    const archived = folder === ARCHIVE_FOLDER ? undefined : await this.locate(join(ARCHIVE_FOLDER, target.localName));
+    const from = archived ?? this.resolve(ref);
     let info;
     try {
       info = await lstat(from);
@@ -119,7 +123,7 @@ export class LocalDirectorySource implements CaptureSource {
     // A link swapped in after the scan is not the capture: it is left alone, never moved.
     if (!info.isFile()) return;
     const changed = info.size !== target.size || info.mtime.toISOString() !== target.takenAt;
-    if (changed && contentHashOf(await this.read(ref)) !== target.contentHash) return;
+    if (changed && contentHashOf(await this.read(relative(this.root, from))) !== target.contentHash) return;
     await mkdir(join(this.root, folder), { recursive: true });
     const record = await lstat(destination).catch((error: unknown) => {
       if (isMissing(error)) return undefined;
@@ -135,6 +139,17 @@ export class LocalDirectorySource implements CaptureSource {
       return;
     }
     await rename(from, destination);
+  }
+
+  /** The path of a regular file inside a real final folder, or undefined when there is none. */
+  private async locate(path: string): Promise<string | undefined> {
+    await this.finalFolder(ARCHIVE_FOLDER);
+    const full = join(this.root, path);
+    const info = await lstat(full).catch((error: unknown) => {
+      if (isMissing(error)) return undefined;
+      throw error;
+    });
+    return info?.isFile() === true ? full : undefined;
   }
 
   /**

@@ -7,7 +7,7 @@
 
 ## Context
 
-After the filings of a batch, the skill empties the camera roll of the work and `other` captures with one `archive` call (ADR-0004 decision 2). Each triaged capture and its duplicates move into the private `Archive/` of the source; the local copy stays under `data/<domain>/` for a later extraction. Doubts are answered after it with `resolve` (`02-sequence-resolve-doubt.md`), from one grouped table.
+After the filings of a batch, the skill empties the camera roll of the work and `other` captures with one `archive` call (ADR-0004 decision 2). Each triaged capture and its duplicates move into the private `.archive/` of the source; the local copy stays under `data/<domain>/` for a later extraction. Doubts are answered after it with `resolve` (`02-sequence-resolve-doubt.md`), from one grouped table.
 
 ## Diagram
 
@@ -26,14 +26,14 @@ sequenceDiagram
     opt a sheet or thumbnail left by a crashed extract
       CLI->>CLI: remove sheet and thumbnail
     end
-    loop for each duplicate of it
-      CLI->>Source: archive(ref, target) — an existing Archive/ID.EXT removes the copy
-      CLI->>Store: upsert(duplicate, status = archived)
-    end
-    CLI->>Source: archive(ref, target), target = ID.EXT + contentHash + size + takenAt
-    alt source call succeeded
+    alt every source call succeeds
+      loop for each duplicate of it
+        CLI->>Source: archive(ref, target) — an existing .archive/ID.EXT removes the copy
+        CLI->>Store: upsert(duplicate, status = archived)
+      end
+      CLI->>Source: archive(ref, target), target = ID.EXT + contentHash + size + takenAt
       CLI->>Store: upsert(status = archived), local copy kept
-    else source call failed
+    else a source call fails (duplicate or original)
       CLI->>Store: upsert(status = triaged, error = archive failed)
     end
   end
@@ -43,6 +43,6 @@ sequenceDiagram
 
 ## Notes
 
-- **Nothing is deleted**: the file moves into `Archive/` (Immich, brick 3: a private album). Duplicates first and the original's row last, so a crash leaves the original `triaged` and a re-run finds its duplicates again (REQ-18).
+- **Nothing is deleted**: the file moves into `.archive/` (Immich, brick 3: a private album). Duplicates first and the original's row last, so a crash leaves the original `triaged` and a re-run finds its duplicates again (REQ-18).
 - `--dry-run` prints every effect in order and changes nothing (REQ-6); no decision line is appended (archiving is not a label).
 - A failed capture keeps `triaged` with an error flag, the run goes on, the command exits 3.

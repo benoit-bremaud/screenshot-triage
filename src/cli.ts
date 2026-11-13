@@ -2,7 +2,7 @@ import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve as resolvePath, sep } from 'node:path';
 import { parseArgs } from 'node:util';
 
-import { EXIT_INTERNAL, EXIT_OK, EXIT_USAGE, UsageError, type CommandContext } from './commands/context.js';
+import { EXIT_INTERNAL, EXIT_OK, EXIT_USAGE, messageOf, UsageError, type CommandContext } from './commands/context.js';
 import { archive } from './commands/archive.js';
 import { doubt, file, resolve } from './commands/decide.js';
 import { extract, notes, purge } from './commands/extract.js';
@@ -35,7 +35,7 @@ export const USAGE = [
   '          (personal and delete need --source; work ignores --dry-run; triaged: personal or delete)',
   '  extract <id> [--dry-run]                      sheet JSON on stdin',
   '  purge   --source <dir> [--dry-run]            delete the extracted captures and their duplicates',
-  '  archive --source <dir> [--dry-run]            move the triaged captures and their duplicates to Archive/',
+  '  archive --source <dir> [--dry-run]            move the triaged captures and their duplicates to .archive/',
   '  notes   --skills-dir <dir>                    uncited rules per target skill, from origin/main',
   '  status  [--json]',
   '  tags',
@@ -56,7 +56,7 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
       io.err(USAGE);
       return EXIT_USAGE;
     }
-    io.err(`error: ${error instanceof Error ? error.message : String(error)}`);
+    io.err(`error: ${messageOf(error)}`);
     return EXIT_INTERNAL;
   }
 };
@@ -106,8 +106,8 @@ const dispatch = async (argv: readonly string[], io: CliIo): Promise<number> => 
   if (values.source !== undefined) await assertDisjoint(values.source, [values.data, values.knowledge]);
   const index = await CaptureIndex.load(join(values.data, 'index.jsonl'));
   // Only a command that will act on the source pins it: `scan`, `purge`, `archive`, and `resolve personal|delete` on a
-  // doubtful or triaged capture. A mistyped --source on any other command, or a rejected resolve, locks nothing.
-  const resolvable = ['doubtful', 'triaged'].includes(index.byId(id ?? '')?.status ?? '');
+  // doubtful, triaged or archived capture. A mistyped --source on any other command, or a rejected resolve, locks nothing.
+  const resolvable = ['doubtful', 'triaged', 'archived'].includes(index.forCommand(id ?? '')?.status ?? '');
   const actsOnSource =
     command === 'scan' || command === 'purge' || command === 'archive' || (command === 'resolve' && values.as !== 'work' && resolvable);
   if (values.source !== undefined && actsOnSource) await pinSource(values.source, values.data, values['dry-run']);

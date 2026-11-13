@@ -18,6 +18,7 @@ describe('UC7 archive (T-24)', () => {
   });
   afterEach(async () => {
     await chmod(ws.source, 0o755).catch(() => undefined);
+    await chmod(ws.data, 0o755).catch(() => undefined);
     await ws.dispose();
   });
 
@@ -32,7 +33,7 @@ describe('UC7 archive (T-24)', () => {
     return { id, other, doubtful };
   };
 
-  it('moves every triaged capture, other included, and its duplicates into Archive/, keeps the local copy, logs nothing', async () => {
+  it('moves every triaged capture, other included, and its duplicates into .archive/, keeps the local copy, logs nothing', async () => {
     const { id, other, doubtful } = await setup();
     const logBefore = await ws.logText();
 
@@ -43,7 +44,7 @@ describe('UC7 archive (T-24)', () => {
     expect((await ws.rowById(id)).map((row) => row.status)).toEqual(['archived', 'archived']);
     expect((await ws.rowById(other))[0]?.status).toBe('archived');
     expect((await ws.rowById(doubtful))[0]?.status).toBe('doubtful');
-    expect((await ws.list('source', 'Archive')).sort()).toEqual([`${id}.png`, `${other}.png`].sort());
+    expect((await ws.list('source', '.archive')).sort()).toEqual([`${id}.png`, `${other}.png`].sort());
     expect(await ws.exists('source', 'a.png')).toBe(false);
     expect(await ws.list('source', 'copy')).toEqual([]);
     expect(await ws.exists('source', 'd.png')).toBe(true);
@@ -66,8 +67,11 @@ describe('UC7 archive (T-24)', () => {
       `dry-run: source.archive(${id}.png)`,
       `dry-run: index: ${id} -> archived`,
     ]);
+    expect(run.json<ArchiveReport>().failed).toEqual([]);
     expect((await ws.rowById(id)).map((row) => row.status).sort()).toEqual(['duplicate', 'triaged']);
-    expect(await ws.exists('source', 'Archive')).toBe(false);
+    expect(await ws.exists('source', '.archive')).toBe(false);
+    expect(await ws.exists('source', 'a.png')).toBe(true);
+    expect(await ws.exists('source', 'copy', 'a.png')).toBe(true);
   });
 
   it('removes a sheet left by a crashed extract', async () => {
@@ -82,8 +86,8 @@ describe('UC7 archive (T-24)', () => {
 
   it('a re-run after a crash between a duplicate and its original completes', async () => {
     const { id } = await setup();
-    await mkdir(join(ws.source, 'Archive'), { recursive: true });
-    await rename(join(ws.source, 'copy', 'a.png'), join(ws.source, 'Archive', `${id}.png`));
+    await mkdir(join(ws.source, '.archive'), { recursive: true });
+    await rename(join(ws.source, 'copy', 'a.png'), join(ws.source, '.archive', `${id}.png`));
 
     const run = await ws.run(['archive', '--source', ws.source]);
 
@@ -92,13 +96,31 @@ describe('UC7 archive (T-24)', () => {
     expect(await ws.exists('source', 'a.png')).toBe(false);
   });
 
-  it('every later command on an archived capture is rejected', async () => {
+  it('file, resolve work and a second archive are rejected or skip an archived capture', async () => {
     const { id } = await setup();
     await ws.run(['archive', '--source', ws.source]);
 
     expect((await ws.file(id, { model: 'owner', confidence: undefined })).code).toBe(1);
-    expect((await ws.resolve(id, 'delete')).code).toBe(1);
+    expect((await ws.resolve(id, 'work')).code).toBe(1);
     expect((await ws.run(['archive', '--source', ws.source])).json<ArchiveReport>()).toEqual({ archived: 0, failed: [], dryRun: false });
+  });
+
+  it.each([
+    ['personal', 'Personnel'],
+    ['delete', '.trash'],
+  ])('resolve %s on an archived capture moves it and its duplicates out of .archive/, no bytes left in data/', async (answer, folder) => {
+    const { id } = await setup();
+    await ws.run(['archive', '--source', ws.source]);
+
+    const run = await ws.resolve(id, answer);
+
+    expect(run.code).toBe(0);
+    const status = answer === 'personal' ? 'personal' : 'deleted';
+    expect((await ws.rowById(id)).map((row) => row.status)).toEqual([status, status]);
+    expect(await ws.list('source', '.archive')).not.toContain(`${id}.png`);
+    expect(await ws.list('source', folder)).toEqual([`${id}.png`]);
+    expect(await ws.list('data', 'frontend')).toEqual([]);
+    if (answer === 'personal') expect((await ws.rowById(id))[0]?.reasoning).toBeUndefined();
   });
 
   // A read-only folder does not stop root, so the failure cannot be provoked that way.
@@ -146,7 +168,7 @@ describe('scan and the archive (T-25)', () => {
     await ws.dispose();
   });
 
-  it('skips Archive/ and archives at once a returning copy, even after the index is lost', async () => {
+  it('skips .archive/ and archives at once a returning copy, even after the index is lost', async () => {
     const id = await triagedCapture(ws, 'a.png', png('a'));
     await ws.run(['archive', '--source', ws.source]);
     await ws.removeIndex();
@@ -156,17 +178,80 @@ describe('scan and the archive (T-25)', () => {
 
     expect(run.json<{ inbox: unknown[]; seen: Record<string, number> }>()).toMatchObject({ inbox: [], seen: { archived: 1 } });
     expect(await ws.list('source', 'back')).toEqual([]);
-    expect(await ws.list('source', 'Archive')).toEqual([`${id}.png`]);
+    expect(await ws.list('source', '.archive')).toEqual([`${id}.png`]);
   });
 
-  it('a file moved back out of Archive/ is triaged again as new', async () => {
+  it('a file moved back out of .archive/ is triaged again as new', async () => {
     const id = await triagedCapture(ws, 'a.png', png('a'));
     await ws.run(['archive', '--source', ws.source]);
-    await rename(join(ws.source, 'Archive', `${id}.png`), join(ws.source, 'a.png'));
+    await rename(join(ws.source, '.archive', `${id}.png`), join(ws.source, 'a.png'));
 
     const run = await ws.scan();
 
     expect(run.json<{ seen: Record<string, number> }>().seen).toEqual({ inbox: 1 });
     expect((await ws.rowById(id)).at(-1)?.status).toBe('inbox');
+  });
+
+  it('a re-sync under the same name keeps the archived row, its domain and tags', async () => {
+    const id = await triagedCapture(ws, 'a.png', png('a'));
+    await ws.run(['archive', '--source', ws.source]);
+    await ws.addCapture('a.png', png('a'));
+
+    await ws.scan();
+
+    expect(await ws.rowById(id)).toEqual([expect.objectContaining({ status: 'archived', domain: 'frontend', tags: ['react', 'hooks'] })]);
+    expect((await ws.rowById(id))[0]?.duplicateOf).toBeUndefined();
+    expect(await ws.exists('source', 'a.png')).toBe(false);
+  });
+
+  it('a returning copy under another name points at the original, the original row untouched', async () => {
+    const id = await triagedCapture(ws, 'a.png', png('a'));
+    await ws.run(['archive', '--source', ws.source]);
+    const before = (await ws.rowById(id))[0];
+    await ws.addCapture('back/a.png', png('a'));
+
+    await ws.scan();
+
+    const rows = await ws.rowById(id);
+    expect(rows[0]).toEqual(before);
+    expect(rows[1]).toMatchObject({ ref: 'back/a.png', status: 'archived', duplicateOf: 'a.png' });
+  });
+
+  it('scan --dry-run prints the archive of a returning copy and changes nothing', async () => {
+    const id = await triagedCapture(ws, 'a.png', png('a'));
+    await ws.run(['archive', '--source', ws.source]);
+    await ws.addCapture('back/a.png', png('a'));
+
+    const run = await ws.scan(['--dry-run']);
+
+    expect(run.out).toContain(`dry-run: source.archive(${id}.png)`);
+    expect(await ws.exists('source', 'back', 'a.png')).toBe(true);
+    expect(await ws.rowById(id)).toHaveLength(1);
+  });
+
+  it('a capture moved out of .archive/ and answered personal leaves no copy in data/', async () => {
+    const id = await triagedCapture(ws, 'a.png', png('a'));
+    await ws.run(['archive', '--source', ws.source]);
+    await rename(join(ws.source, '.archive', `${id}.png`), join(ws.source, 'a.png'));
+    await ws.scan();
+    await ws.doubt(id);
+
+    await ws.resolve(id, 'personal');
+
+    expect(await ws.list('data', 'inbox')).toEqual([]);
+    expect(await ws.list('data', 'frontend')).toEqual([]);
+  });
+
+  it('re-filing a capture moved out of .archive/ keeps one local copy', async () => {
+    const id = await triagedCapture(ws, 'a.png', png('a'));
+    await ws.run(['archive', '--source', ws.source]);
+    await rename(join(ws.source, '.archive', `${id}.png`), join(ws.source, 'a.png'));
+    await ws.scan();
+
+    await ws.file(id, { domain: 'design' });
+
+    expect(await ws.list('data', 'inbox')).toEqual([]);
+    expect(await ws.list('data', 'frontend')).toEqual([]);
+    expect(await ws.list('data', 'design')).toEqual([`${id}.png`]);
   });
 });

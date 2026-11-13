@@ -3,22 +3,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { StatusReport } from '../src/commands/status.js';
 import { png, Workspace } from './helpers.js';
 
-describe('UC3 status (T-9, T-13)', () => {
+describe('UC3 status (T-13)', () => {
   let ws: Workspace;
   beforeEach(async () => {
     ws = await Workspace.create();
   });
   afterEach(() => ws.dispose());
-
-  it('T-9: lists the other captures older than 90 days, not the recent ones', async () => {
-    const old = await ws.addCapture('old.png', png('old'), new Date('2026-06-01T00:00:00Z'));
-    const recent = await ws.addCapture('recent.png', png('recent'), new Date('2026-10-01T00:00:00Z'));
-    await ws.scan();
-    await ws.file(old, { domain: 'other' });
-    await ws.file(recent, { domain: 'other' });
-    const report = (await ws.run(['status', '--json'])).json<StatusReport>();
-    expect(report.oldOther).toEqual([{ id: old, takenAt: '2026-06-01T00:00:00.000Z' }]);
-  });
 
   it('T-13: counts per status and domain, doubtful list, tag counts with new-skill candidates', async () => {
     const ids: string[] = [];

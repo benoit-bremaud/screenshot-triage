@@ -1,6 +1,6 @@
 # ADR-0003 — Extract in the Claude Code session, render and purge in the CLI, derive the enrichment batch from the target skills
 
-Status: accepted · Date: 2026-11-07 · Deciders: Benoît Bremaud, with Claude Code (MCDA matrices, scores /500).
+Status: accepted, decision 2 amended by ADR-0004 · Date: 2026-11-07 · Deciders: Benoît Bremaud, with Claude Code (MCDA matrices, scores /500).
 Settles how brick 4 (#4) turns a triaged capture into a sheet, when the capture is deleted, and how a batch knows which rules the enrichment PR still has to carry; amends ADR-0001 § Sheet format (the sheet carries the id, never the Immich asset id) and decision 8 (sheets under `knowledge/<domain>/` of this repository, as ADR-0002 already moved them).
 
 ## Context

@@ -1,7 +1,7 @@
 import { runEffects } from '../effects.js';
 import { idOf } from '../triage/capture.js';
 import { transition } from '../triage/transition.js';
-import { EXIT_INTERNAL, EXIT_OK, requireSource, type CommandContext } from './context.js';
+import { EXIT_INTERNAL, EXIT_OK, messageOf, requireSource, type CommandContext } from './context.js';
 
 /**
  * `archive --source DIR [--dry-run]` (UC7, REQ-18, ADR-0004): every triaged capture, `other` included, and its
@@ -18,17 +18,18 @@ export const archive = async (context: CommandContext): Promise<number> => {
   for (const row of triaged) {
     const id = idOf(row.contentHash);
     const result = transition(row, { type: 'archive', duplicates: context.index.duplicatesOf(row.ref) });
-    if (!result.ok) continue;
+    // The rows are filtered to `triaged`, the one status `archive` accepts: a rejection cannot happen.
+    if (!result.ok) throw new Error(result.reason);
     try {
       await runEffects(result.effects, context);
       archived += 1;
     } catch (error) {
       failed.push(id);
-      context.err(`archive of ${id} failed: ${error instanceof Error ? error.message : String(error)}`);
+      context.err(`archive of ${id} failed: ${messageOf(error)}`);
       // Best effort: the original error is the one reported.
       if (!context.dryRun) {
         await context.index.upsert({ ...row, error: 'archive failed' }).catch((flagError: unknown) => {
-          context.err(`could not flag ${id}: ${flagError instanceof Error ? flagError.message : String(flagError)}`);
+          context.err(`could not flag ${id}: ${messageOf(flagError)}`);
         });
       }
     }

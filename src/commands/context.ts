@@ -22,19 +22,22 @@ export const EXIT_USAGE = 2;
 /** Unexpected error, message on stderr. */
 export const EXIT_INTERNAL = 3;
 
+/** The message of a thrown value, for one stderr line. */
+export const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
 /** A wrong invocation: bad id, bad flag, invalid payload; reported with the usage, exit 2. */
 export class UsageError extends Error {}
 
 /**
  * Resolves the id on argv to its addressable row (REQ-9). Anything but 12 hex characters is a
- * usage error. When no row is addressable, the latest row carrying the id is returned so the
- * transition can report the current status (REQ-8).
+ * usage error. When no row is addressable, the archived original, else the latest row carrying the id, is returned
+ * so the transition acts on it or reports the current status (REQ-8).
  */
 export const rowForId = (context: CommandContext, id: string | undefined): CaptureRow | undefined => {
   if (id === undefined || !isCaptureId(id)) {
     throw new UsageError('expected a capture id: 12 hex characters, never a filename or a ref');
   }
-  return context.index.byId(id) ?? context.index.latestById(id);
+  return context.index.forCommand(id);
 };
 
 /** The source of a destructive command; its absence is a usage error. */

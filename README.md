@@ -7,11 +7,12 @@ Turns the Instagram screenshots taken on a phone into knowledge that enriches or
 1. **Collect**: the Immich app on the phone backs up the Screenshots album to the self-hosted Immich server, which deduplicates and runs OCR.
 2. **Triage, on demand**: the `/screenshots` skill pulls new assets through the Immich API and files each one, by vision with the OCR text in context, into one of eight fixed domains plus free tags.
 3. **Guard rail**: on any doubt (personal, unreadable, off-topic) the capture is held and, after the batch, the owner answers: work / personal / delete. Personal captures are never read; confidential work content is answered delete, because a work filing is published as derived text.
-4. **Extract**: one sheet per capture (actionable rules, source, tags, target skill), written by the session and rendered by the CLI; technical rules verified against official docs, design rules confronted with the target skill. Design gems keep an 800 px thumbnail, outside Git.
-5. **Purge**: once the owner has read the batch's sheets, `purge` deletes the local files and trashes the Immich assets.
-6. **Enrich**: once the sheets are on `main`, one pull request per batch into the target skill's `references/field-notes.md`; a tag reaching five captures with no covering skill becomes a new-skill candidate.
+4. **Archive**: right after the filings, `archive` moves every triaged capture (work and `other`) and its duplicates out of the camera roll into a private archive (`.archive/` locally); nothing is deleted, and the owner can still answer personal or delete on an archived capture. Doubts are then answered from one grouped table with a default per category.
+5. **Extract**: one sheet per capture (actionable rules, source, tags, target skill), written by the session and rendered by the CLI; technical rules verified against official docs, design rules confronted with the target skill. Design gems keep an 800 px thumbnail, outside Git.
+6. **Purge**: once the owner has read the batch's sheets, `purge` deletes the local files and trashes the Immich assets.
+7. **Enrich**: once the sheets are on `main`, one pull request per batch into the target skill's `references/field-notes.md`; a tag reaching five captures with no covering skill becomes a new-skill candidate.
 
-Decisions and their scores: [ADR-0001](docs/architecture/decisions/0001-pipeline-decisions.md), [ADR-0002](docs/architecture/decisions/0002-classify-in-the-claude-code-session.md), [ADR-0003](docs/architecture/decisions/0003-extract-in-the-session-render-in-the-cli.md).
+Decisions and their scores: [ADR-0001](docs/architecture/decisions/0001-pipeline-decisions.md), [ADR-0002](docs/architecture/decisions/0002-classify-in-the-claude-code-session.md), [ADR-0003](docs/architecture/decisions/0003-extract-in-the-session-render-in-the-cli.md), [ADR-0004](docs/architecture/decisions/0004-archive-work-captures-out-of-the-camera-roll.md).
 
 ## Domains
 
@@ -22,7 +23,7 @@ Boundary test between design and frontend: "if the code is removed, does the adv
 
 ```
 src/cli.ts      TypeScript CLI: scan | file | doubt | resolve | status | tags (bricks 2-3), --dry-run;
-                extract | purge | notes from brick 4
+                extract | purge | notes from brick 4; archive (#15)
   main.ts       bin entry point (stdin, exit code)
   commands/     one module per command
   sources/      CaptureSource port, local-directory adapter, Immich adapter (@immich/sdk, brick 3)
@@ -45,6 +46,8 @@ echo '{"promptVersion":"triage-v1","model":"claude-sonnet-5-5","domain":"fronten
   | node dist/main.js file <id>                           # Inbox -> Triaged, labels appended to knowledge/decisions.jsonl
 echo '{"promptVersion":"triage-v1","model":"claude-sonnet-5-5","category":"personal-suspected","reasoning":"..."}' \
   | node dist/main.js doubt <id>                          # held, asked after the batch
+node dist/main.js archive --source ~/Screenshots --dry-run   # plan: triaged captures and duplicates to .archive/
+node dist/main.js archive --source ~/Screenshots             # {archived, failed, dryRun}
 node dist/main.js resolve <id> --as personal --source ~/Screenshots --dry-run
 node dist/main.js status --json
 node dist/main.js tags
@@ -65,7 +68,7 @@ node dist/main.js notes --skills-dir ~/.claude/skills    # uncited rules per tar
 
 ## Status
 
-Brick 0: repository created, decisions recorded. Brick 2 (triage CLI with a local-directory source): conception and code done. Brick 4 (extraction, purge, field-notes report): conception and CLI done; the `/screenshots` skill is pending, under its own issue in `~/.claude`. Brick 1 (Immich on the homelab) in `bb-homelab`. Planned: 3 Immich adapter, 5 Google Photos backlog, 6 local model in shadow mode.
+Brick 0: repository created, decisions recorded. Brick 2 (triage CLI with a local-directory source): conception and code done. Brick 4 (extraction, purge, field-notes report): conception and CLI done; the `/screenshots` skill is pending, under its own issue in `~/.claude`. Archive (#15, ADR-0004): `archive` and the final status `archived` done. Brick 1 (Immich on the homelab) in `bb-homelab`. Planned: 3 Immich adapter, 5 Google Photos backlog, 6 local model in shadow mode.
 
 ## Licence
 

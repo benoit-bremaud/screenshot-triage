@@ -47,6 +47,7 @@ const legal = new Set([
   'extracted:extract',
   'extracted:purge',
   'triaged:archive',
+  'archived:resolve',
 ]);
 
 const cases = STATUSES.flatMap((status) =>
@@ -162,5 +163,18 @@ describe('brick 4 transitions (05-state-capture)', () => {
       'source-trash',
       'index-write',
     ]);
+  });
+});
+
+describe('scan guard order (T-25)', () => {
+  const candidate = { ref: 'a.png', name: 'a.png', takenAt: '2026-11-01T00:00:00.000Z', size: 10, contentHash: 'abcdef012345'.padEnd(64, '0'), ext: 'png' as const };
+  it.each([
+    [{ personalAtSource: true, trashedAtSource: true, archivedAtSource: true }, 'personal'],
+    [{ personalAtSource: false, trashedAtSource: true, archivedAtSource: true }, 'deleted'],
+    [{ personalAtSource: false, trashedAtSource: false, archivedAtSource: true }, 'archived'],
+  ])('%o -> %s', (flags, next) => {
+    const result = transition(undefined, { type: 'scan', candidate, facts: { sameHash: [], ...flags } });
+
+    expect(result).toMatchObject({ ok: true, next });
   });
 });

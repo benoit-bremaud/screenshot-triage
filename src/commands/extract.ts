@@ -12,7 +12,7 @@ import { parseSheet, renderSheet, type ParsedSheet } from '../extract/render.js'
 import { idOf } from '../triage/capture.js';
 import { DOMAINS } from '../triage/domains.js';
 import { transition } from '../triage/transition.js';
-import { EXIT_INTERNAL, EXIT_OK, reportRejection, requireSource, rowForId, UsageError, type CommandContext } from './context.js';
+import { EXIT_INTERNAL, EXIT_OK, messageOf, reportRejection, requireSource, rowForId, UsageError, type CommandContext } from './context.js';
 
 const run = promisify(execFile);
 
@@ -82,11 +82,11 @@ export const purge = async (context: CommandContext): Promise<number> => {
       purged += 1;
     } catch (error) {
       failed.push(id);
-      context.err(`purge of ${id} failed: ${error instanceof Error ? error.message : String(error)}`);
+      context.err(`purge of ${id} failed: ${messageOf(error)}`);
       // UC5 ext. 3a: the row stays `extracted` with the error. Best effort: the original error is the one reported.
       if (!context.dryRun) {
         await context.index.upsert({ ...row, error: 'purge failed' }).catch((flagError: unknown) => {
-          context.err(`could not flag ${id}: ${flagError instanceof Error ? flagError.message : String(flagError)}`);
+          context.err(`could not flag ${id}: ${messageOf(flagError)}`);
         });
       }
     }

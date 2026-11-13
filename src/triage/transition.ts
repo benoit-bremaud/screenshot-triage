@@ -15,7 +15,7 @@ export interface ScanCandidate {
   readonly ocrText?: string;
 }
 
-/** The facts the four `scan` guards read, gathered by the caller (05-state-capture § Notes). */
+/** The facts the five `scan` guards read, gathered by the caller (05-state-capture § Notes). */
 export interface ScanFacts {
   /** Index rows sharing the candidate's hash. */
   readonly sameHash: readonly CaptureRow[];
@@ -23,7 +23,7 @@ export interface ScanFacts {
   readonly personalAtSource: boolean;
   /** The candidate's id sits in the source's `.trash/`. */
   readonly trashedAtSource: boolean;
-  /** The candidate's id sits in the source's `Archive/` (ADR-0004). */
+  /** The candidate's id sits in the source's `.archive/` (ADR-0004). */
   readonly archivedAtSource: boolean;
 }
 
@@ -108,7 +108,11 @@ const scan = (capture: CaptureRow | undefined, candidate: ScanCandidate, facts: 
   }
   if (facts.archivedAtSource) {
     const archivedOriginal = facts.sameHash.find((row) => row.status === 'archived');
-    const row: CaptureRow = { ...base, status: 'archived', duplicateOf: archivedOriginal?.ref ?? candidate.ref };
+    // The same ref re-synced keeps its archived row: its domain and tags are what a later extraction reads.
+    const row: CaptureRow =
+      capture?.status === 'archived'
+        ? { ...capture, takenAt: candidate.takenAt, size: candidate.size }
+        : { ...base, status: 'archived', duplicateOf: archivedOriginal?.ref ?? candidate.ref };
     return ok('archived', [
       { kind: 'source-archive', ref: candidate.ref, target },
       { kind: 'index-write', row },
@@ -184,11 +188,11 @@ const doubt = (capture: CaptureRow | undefined, decision: DoubtDecision): Transi
 
 const resolve = (capture: CaptureRow | undefined, answer: Answer, duplicates: readonly CaptureRow[]): Transition => {
   if (capture === undefined) return reject(capture, 'unknown capture');
-  if (capture.status !== 'doubtful' && capture.status !== 'triaged') {
-    return reject(capture, 'resolve applies to a doubtful or triaged capture');
+  if (capture.status !== 'doubtful' && capture.status !== 'triaged' && capture.status !== 'archived') {
+    return reject(capture, 'resolve applies to a doubtful, triaged or archived capture');
   }
   if (answer === 'work') {
-    if (capture.status === 'triaged') return reject(capture, 'a triaged capture is already work');
+    if (capture.status !== 'doubtful') return reject(capture, `a ${capture.status} capture is already work`);
     return ok('inbox', [{ kind: 'index-write', row: { ...capture, status: 'inbox', doubtAnswer: 'work' } }]);
   }
   const next: Status = answer === 'personal' ? 'personal' : 'deleted';
@@ -206,8 +210,14 @@ const resolve = (capture: CaptureRow | undefined, answer: Answer, duplicates: re
       { kind: 'index-write', row: withoutPrivateText({ ...duplicate, status: next }) },
     );
   }
-  effects.push({ kind: 'index-write', row: withoutPrivateText({ ...capture, status: next, doubtAnswer: answer }) });
+  const { error: _error, ...kept } = capture;
+  effects.push({ kind: 'index-write', row: withoutPrivateText({ ...kept, status: next, doubtAnswer: answer }) });
   return ok(next, effects);
+};
+
+const withoutError = (row: CaptureRow): CaptureRow => {
+  const { error: _error, ...kept } = row;
+  return kept;
 };
 
 /** Removes a sheet and thumbnail a crashed `extract` may have left; both are no-ops when absent. */
@@ -240,7 +250,7 @@ const extract = (capture: CaptureRow | undefined, markdown: string, gem: boolean
   return ok('extracted', [
     { kind: 'write-sheet', id, domain, markdown },
     thumbnail,
-    { kind: 'index-write', row: { ...capture, status: 'extracted' } },
+    { kind: 'index-write', row: { ...withoutError(capture), status: 'extracted' } },
   ]);
 };
 

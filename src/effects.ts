@@ -94,15 +94,17 @@ const run = async (effect: Effect, deps: EffectDeps): Promise<void> => {
     case 'move-to-domain': {
       const from = await locateLocal(deps.dataDir, effect.localName);
       if (from === undefined) throw new Error(`local copy ${effect.localName} not found`);
+      const to = join(deps.dataDir, effect.domain, effect.localName);
       await mkdir(join(deps.dataDir, effect.domain), { recursive: true });
-      await rename(from, join(deps.dataDir, effect.domain, effect.localName));
+      await rename(from, to);
+      // A copy left in another folder (a capture moved back out of the archive) is the same bytes: one copy stays.
+      for (const path of await localCopies(deps.dataDir, effect.localName)) if (path !== to) await rm(path);
       return;
     }
-    case 'delete-local': {
-      const path = await locateLocal(deps.dataDir, effect.localName);
-      if (path !== undefined) await rm(path);
+    case 'delete-local':
+      // Every copy: a personal capture leaves no bytes under `data/` (REQ-5).
+      for (const path of await localCopies(deps.dataDir, effect.localName)) await rm(path);
       return;
-    }
     case 'source-mark-personal':
       return requireSource(deps).markPersonal(effect.ref, effect.target);
     case 'source-trash':
@@ -134,11 +136,16 @@ const requireSource = (deps: EffectDeps): CaptureSource => {
   return deps.source;
 };
 
-/** A local copy sits in `data/inbox/` or in one domain folder (ADR-0002 § Consequences). */
-export const locateLocal = async (dataDir: string, localName: string): Promise<string | undefined> => {
+/** Every local copy of a capture, in `data/inbox/` then the domain folders (ADR-0002 § Consequences). */
+const localCopies = async (dataDir: string, localName: string): Promise<string[]> => {
+  const copies: string[] = [];
   for (const folder of [INBOX_FOLDER, ...DOMAINS]) {
     const candidate = join(dataDir, folder, localName);
-    if (await exists(candidate)) return candidate;
+    if (await exists(candidate)) copies.push(candidate);
   }
-  return undefined;
+  return copies;
 };
+
+/** The first local copy of a capture: `data/inbox/` first, then one domain folder. */
+export const locateLocal = async (dataDir: string, localName: string): Promise<string | undefined> =>
+  (await localCopies(dataDir, localName))[0];
