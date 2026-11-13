@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { runEffects } from '../effects.js';
 import type { CaptureRow } from '../triage/capture.js';
 import { DoubtDecisionSchema, FileDecisionSchema } from '../triage/decision.js';
-import { isAnswer } from '../triage/status.js';
+import { isAnswer, type Status } from '../triage/status.js';
 import { transition, type Event } from '../triage/transition.js';
 import { EXIT_OK, reportRejection, requireSource, rowForId, UsageError, type CommandContext } from './context.js';
 
@@ -69,7 +69,7 @@ export const resolve = (context: CommandContext, id: string | undefined, answer:
   if (answer !== 'work') requireSource(context);
   // Archived copies follow too: an archived capture's copies were archived with it, and a failed `archive` can
   // leave a triaged capture with copies already in the archive (ADR-0004).
-  const duplicates =
-    row === undefined ? [] : context.index.duplicatesOf(row, row.status === 'archived' ? ['archived'] : ['duplicate', 'archived']);
+  const statuses: readonly Status[] = row?.status === 'archived' ? ['archived'] : ['duplicate', 'archived'];
+  const duplicates = row === undefined ? [] : context.index.duplicatesOf(row, statuses);
   return apply(context, id ?? '', row, { type: 'resolve', answer, duplicates }, answer !== 'work' && context.dryRun);
 };
