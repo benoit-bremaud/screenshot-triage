@@ -1,67 +1,54 @@
-# Local review — screenshot-triage (brick 4 code)
+# Local review — screenshot-triage (feat/15-archive-captures)
 
-Pre-merge review of PR #12 (`feat/4-extract-sheets-code`, closes #4): `extract`, `purge` and `notes` in the CLI.
+Pre-push review of the archive brick (#15, ADR-0004): four adversarial rounds, the push gate open, SonarQube passed.
 
-- Date: 2026-11-07
-- Commit: 6751275
-- Scope: branch diff origin/main...feat/4-extract-sheets-code
-- Checks run: adversarial (Opus, 3 rounds on the code, 3 verify rounds on the fixes) · design · docs · tests · security · correctness · SonarQube
-- Verdict: ship as-is · Must 0 · Should 0 · Nice 2
+- Date: 2026-11-13
+- Commit: 6de0dc0
+- Scope: branch diff main...HEAD (`--push`)
+- Checks run: adversarial (Opus, 4 rounds) · tests · coverage · SonarQube · secrets · diff read
+- Verdict: ship · Must 0 · Should 0 · Nice 4
 
 ## Adversarial review (#236)
 
-- Rounds on the code, up to `c9a95da`: Must 2 · Should 9 · Nice several, all fixed; Push gate: open.
-- Verify round on `7dc4a53` (fixes from this review): 1 Must not fixed (sharp sets no errno `code`, so the narrowed thumbnail catch never rethrew) · Push gate: closed.
-- Verify round on `e55bfa4`: Must fixed (decode and write split) · Should 3 open (missing tests) · Push gate: open.
-- Verify round on `6751275`: Should 3 fixed, both new tests fail on the old code · **Push gate: open**.
-- Hosted reviewers: Copilot not available (request returned no reviewer) · Codex `@codex review` refused (quota); the owner waived Codex on 2026-11-07: "on merge sans review codex, mais tu lances alors la review locale avant".
+- Round 1 on `4f0849b`: Must 4 · Push gate: closed. Fixed in `e816e78`.
+- Round 2 on `e816e78`: all 4 fixed · new Must 2, Should 1 · Push gate: closed. Fixed in `c08bbcc`.
+- Round 3 on `c08bbcc`: Must 1 partly fixed, Must 2 and Should fixed · new Must 2 (a personal answer left a copy in `.archive/`; a re-keyed ref let another capture's answer trash the archived one) · Push gate: closed. Fixed in `cbd4b71` (copies matched on the content hash).
+- Round 4 on `cbd4b71`: 2 fixed · new Must 0 · Should 1 (state machine), fixed in `43c4122` · **Push gate: open**.
+- Optional second review (owner's OpenAI account): not run (never a gate step).
 
-## Pre-merge gate (head SHA 6751275)
+## Pre-merge gate (head SHA 6de0dc0)
 
 | Step | Result |
 |---|---|
-| 0 CI mirror | n/a: no `.github/workflows` (owner rule 2026-11-07, local CI only) |
-| 1 Tests | ✅ 202 vitest (unit and in-process CLI); one case `skipIf` root, not skipped here (uid 1000) |
-| 2 Coverage | tests 96.36 % stmts / 89.93 % branches / 96.44 % funcs / 97.79 % lines (floor 80) · docs ≈ 100 % of exports documented (doc-auditor count, no tool) (floor 90) |
-| 3 SonarQube | ✅ PASSED (new coverage 93 %, duplication 0 %, new violations 0). First run on `c9a95da` FAILED with 16 new violations; 13 fixed in code, 3 S9382 "await in a loop" in `purge` marked Accepted: purge is sequential by design (ADR-0003, one capture at a time, duplicates before the original's row), documented at `src/commands/extract.ts:69` |
-| 4 Secrets | ✅ `gitleaks git` 8.30.1 clean on origin/main..HEAD (and `--all` on `c9a95da`) · only `.env.example` tracked · diff read: nothing sensitive |
-| 5 E2E/smoke | n/a: CLI without a deployed product; the in-process CLI tests run every command end to end over a temporary directory and a local bare git origin |
+| 0 CI mirror | n/a: no GitHub Actions (owner rule 2026-11-07) |
+| 1 Tests | ✅ 238 vitest (unit and CLI integration over a temporary directory) |
+| 2 Coverage | tests 96.42 % stmts / 90.84 % branches (floor 80) · docs ⏸ deferred to the pre-merge run |
+| 3 SonarQube | ✅ PASSED (project `screenshot-triage`, created by this branch's `sonar-project.properties`); new coverage 95 %, duplication 0 %; 5 new findings fixed, 2 S9382 "await in loop" in `src/commands/archive.ts` marked Accepted by the owner (sequential on purpose: a crash leaves at most one capture half-archived, like `purge`) |
+| 4 Secrets | ✅ gitleaks 8.30.1 clean on main..HEAD · no tracked `.env` (only `.env.example`) · diff read: nothing sensitive |
+| 5 E2E/smoke | n/a: a CLI with no deployed build; the CLI tests drive the built commands end to end |
 
-- Gate: **GREEN — ready for the merge**. Report-only commit on top of `6751275`: `git diff --name-only 6751275 HEAD` prints `docs/architecture/review-local.md` only.
+- Gate: `--push`: **pre-push green** — `npm run check` passed, doc coverage deferred (never GREEN); the repository has no `scripts/attest.sh`, so the merge follows the waiver question.
 
 ## 🔴 Must Have
 
-- `tests/t22-t23-triaged.test.ts:40` `[tests]` · the crash-test arrangements were never asserted, so the tests could not fail · fixed in `e0706df`.
-- `tests/t17-t21-payload.test.ts` `[tests]` · `\p{Co}`, `\p{Cn}`, U+2028 and U+2029 refusals were untested · fixed in `e0706df`.
-- SonarQube `[sonar]` · 16 new violations (unsorted `sort()`, cognitive complexity of `run`, backtracking-prone `EMOJI_JOINER`, raw bidi character in a test, minors) · fixed in `e0706df`, `36a43ee`, `7dc4a53`.
-- `src/effects.ts` `[adversarial|design|security]` · the thumbnail catch swallowed disk-full and permission errors, so a gem could be purged without its thumbnail · fixed in `e55bfa4` (decode with sharp, write with `fs`, new T-18 case).
+_None._
 
 ## 🟡 Should Have
 
-- `src/commands/extract.ts` `[security|correctness]` · `onMain` read any git error as "missing" · fixed with `ls-tree` in `e0706df`, tested in `6751275`.
-- `src/commands/extract.ts` `[correctness]` · `git fetch` had no timeout · 60 s timeout in `e0706df`; the ssh override added there was dropped in `e55bfa4`.
-- `src/commands/extract.ts:88` `[correctness]` · a failed error-flag write was silent · logged in `e0706df`, tested in `6751275`.
-- `[design]` · sheet path built in five places, rule kinds in three · `sheetPath` and `RULE_KINDS` in `e0706df`.
-- `[docs]` · `extract`, `purge` and `notes` docstrings missing their output and errors; README missing REQ-16/17 · fixed in `e0706df`.
-- `tests/t17-t21-payload.test.ts` `[adversarial]` · invisible characters typed raw · escaped in `e55bfa4`.
+_None._
 
 ## 🔵 Nice to Have
 
-- `tests/t19-purge.test.ts:106`, `tests/t16-t18-extract.test.ts:97` `[adversarial]` · restore folder modes in `afterEach` or `finally`, so a thrown run cannot leave a 555 folder behind.
-- `src/commands/extract.ts:153` `[adversarial]` · `.trim()` on `--show-prefix` would drop a trailing space of a folder name (pre-existing).
-- Not applied, worth an issue: a filter refusing token, email and phone shapes in sheet text before publication `[security]`; the test-auditor's Should items on boundary accepts and status variety `[tests]`.
+- `src/triage/transition.ts:47` `[adversarial]` · the `archived:` ref prefix could clash with a real root file named `archived:<id>.png` · a prefix `listCaptures` cannot produce.
+- `src/commands/archive.ts`, `src/commands/extract.ts` `[adversarial]` · the `archive` and `purge` loops are alike · kept apart until a third (Rule of Three).
+- `docs/architecture/diagrams/extract/01-use-case.md` `[docs]` · UC7 still reads "(status: planned)".
+- `src/sources/local-directory.ts` `[correctness]` · out of scope, to file: `moveInto` with `from === destination`; Immich re-listing of final assets and the timeline mechanism (brick 3).
 
 ## ⚪ Disagree / Intentional
 
-- `src/commands/extract.ts:69` `[sonar]` · sequential purge · ADR-0003.
-- `src/commands/extract.ts` `[design]` · `notes` beside `extract` and `purge`, with the git helpers · `03-component.md` places them there.
-- `gemWithoutThumbnail` `[design]` · kept: the session needs to tell a skipped gem from a non-gem.
+- `src/sources/local-directory.ts:116` `[adversarial]` · an archived target missing from `.archive/` is a no-op · the port's "a ref already gone is a no-op" contract.
+- `src/commands/decide.ts:72` `[adversarial]` · `resolve` also settles same-hash archived rows of an earlier life of the capture · the owner's answer is about these bytes.
 
 ## Per-dimension summary
 
-- Adversarial: one real Must found in the fixes themselves (sharp errors carry no code), closed; gate open.
-- Design: dependency rule holds, no over-engineering; duplication removed.
-- Docs: public surface documented; three docstrings completed.
-- Tests: pyramid healthy, no over-mocking; two false-confidence tests fixed, three behaviours newly covered.
-- Security: no injection or path traversal; invisible-text refusal intact.
-- Correctness: git errors and file-system errors now surface instead of being misread.
+- Adversarial: 4 rounds, 8 Must found and fixed, gate open · Tests: T-24 and T-25 cover archive, failures, re-sync and both reproduced bugs · Security: no secret, personal bytes never left in the archive · SonarQube: passed.
