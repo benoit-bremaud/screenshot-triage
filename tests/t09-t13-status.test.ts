@@ -22,12 +22,29 @@ describe('UC3 status (T-13)', () => {
     expect(report.byStatus).toEqual({ triaged: 5, doubtful: 1 });
     expect(report.byDomain).toEqual({ frontend: 5 });
     expect(report.doubtful).toEqual([
-      { id: doubtfulId, path: expect.stringContaining(`inbox/${doubtfulId}.png`), category: 'unreadable', reasoning: expect.any(String) },
+      { id: doubtfulId, path: expect.stringContaining(`inbox/${doubtfulId}.png`), category: 'unreadable' },
     ]);
     expect(report.tags).toEqual([{ tag: 'tailwind', count: 5, newSkillCandidate: true }]);
     const text = await ws.run(['status']);
     expect(text.out.join('\n')).toContain('tailwind 5 (new-skill candidate)');
     expect(text.out.join('\n')).toContain('doubtful: 1 awaiting an answer');
+  });
+
+  it('T-13: a doubtful capture is listed without its OCR text or the model reasoning (#27)', async () => {
+    const id = await ws.addCapture('p.png', png('private'));
+    await ws.scan();
+    await ws.doubt(id, { category: 'personal-suspected', reasoning: 'SECRET-REASONING' });
+    // The local source has no OCR; an OCR-capable source (Immich, #3) fills the row like this.
+    await ws.rewriteIndex((row) => ({ ...row, ocrText: 'SECRET-OCR' }));
+    const json = await ws.run(['status', '--json']);
+    expect(json.json<StatusReport>().doubtful).toEqual([
+      { id, path: expect.stringContaining(`inbox/${id}.png`), category: 'personal-suspected' },
+    ]);
+    const text = await ws.run(['status']);
+    for (const output of [json.out.join('\n'), text.out.join('\n')]) {
+      expect(output).not.toContain('SECRET-OCR');
+      expect(output).not.toContain('SECRET-REASONING');
+    }
   });
 
   it('status on an empty index', async () => {

@@ -95,7 +95,7 @@ flowchart LR
 
 **Main success scenario**
 
-1. System presents one doubtful capture with the doubt category and reasoning and the three answers: work, personal, delete.
+1. System presents one doubtful capture with its doubt category and local path (never its OCR text or the doubt reasoning, which stay in the private index) and the three answers: work, personal, delete.
 2. Owner answers.
 3. System applies the answer (extensions 3a–3c) and records it.
 4. Steps 1–3 repeat for every doubtful capture.

@@ -32,7 +32,7 @@ flowchart LR
   Inbox -->|"PII: image to classify"| P1
   Index -->|"PII: doubtful rows for UC2"| P1
   P1 -->|"PII: ref, filename, hash, status"| Index
-  P1 -->|"PII: inbox image, OCR text, doubt reasoning"| Session
+  P1 -->|"PII: inbox image, OCR text; doubtful captures by id, path and category only"| Session
   Session -->|"decision payload: domain, tags, confidence, reasoning or doubt category"| P1
   P1 -->|"PII: filing or doubt reasoning, category, owner answer"| Index
   P1 -->|"labels of work captures only, keyed by content hash, no free text"| Log
@@ -41,7 +41,7 @@ flowchart LR
 
 ## Notes
 
-- **Processor**: the model provider receives every inbox image, its OCR text and, in UC2, the doubt reasoning it wrote itself; it never receives a capture after a personal answer. Retention there follows the provider's consumer terms for the Claude Code subscription; a capture is sent again only after a `work` answer or a failed move. Legal basis: the owner's own data, processed on the owner's request.
+- **Processor**: the model provider receives every inbox image, its OCR text; in UC2 it receives a doubtful capture's id, path and category, never its OCR text or the doubt reasoning (#27); it never receives a capture after a personal answer. Retention there follows the provider's consumer terms for the Claude Code subscription; a capture is sent again only after a `work` answer or a failed move. Legal basis: the owner's own data, processed on the owner's request.
 - **Only D3 is published**: it never holds a ref, a filename, an image, or any free text, the model's reasoning included, so a `work` filing that was a false negative on a personal screenshot publishes a domain and tags at most (REQ-5, NFR-1). Its key is the content hash, and commands address captures by the 12-character id derived from it, so no filename reaches Git or a shell command.
 - **D1 and D2 are git-ignored and unbacked**: losing them loses statuses and doubt answers, never a personal capture, because the source records personal, deleted and archived captures durably (ADR-0002, T-14).
 - **What reaches the source**: a ref and an action; no derived text. `archive` moves a work or `other` capture into the source's private archive (`.archive/`, Immich private album), which stays in the owner's trust zone and is never published (ADR-0004).

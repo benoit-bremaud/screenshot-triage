@@ -20,9 +20,9 @@ sequenceDiagram
   participant Source as Capture source
   participant Store as Store
   Skill->>CLI: status --json
-  CLI-->>Skill: doubtful captures (id, path, category, reasoning)
+  CLI-->>Skill: doubtful captures (id, path, category), no OCR text, no reasoning
   loop for each doubtful capture
-    Skill->>Owner: capture, doubt category and reasoning, answers work / personal / delete
+    Skill->>Owner: capture, doubt category, answers work / personal / delete
     Owner-->>Skill: answer
     alt work
       Skill->>CLI: resolve ID --as work
@@ -52,7 +52,7 @@ sequenceDiagram
 ## Notes
 
 - **Dry run**: `resolve --as personal|delete --dry-run` prints the effects in order (local delete, source call, index change) and returns before any of them (REQ-6); `--as work` has no destructive effect and ignores the flag. Test T-7.
-- **Personal captures are never read** (REQ-5): the personal branch carries no image or OCR text to the model; the doubt reasoning is cleared from the index row and never reached the versioned log; the only data that leaves the capture is its ref, sent to the source.
+- **Personal captures are never read** (REQ-5): `status` lists a doubtful capture by id, path and category only, never its OCR text or the doubt reasoning, so a suspected personal capture's text never reaches the session again (#27); the `work` answer lifts the suspicion and the capture returns to `scan` with its OCR text. The personal branch carries no image or OCR text to the model; the doubt reasoning is cleared from the index row and never reached the versioned log; the only data that leaves the capture is its ref, sent to the source.
 - **Order of effects**: the local file is deleted before the source call so a source failure (brick 3, network) cannot leave a readable personal file on the PC. Delete and the source calls are idempotent (a source call on a ref already gone, deleted on the phone or moved before a crash, is a no-op; the CLI pins the source root in `data/source.json`, so a wrong `--source` is refused before any effect), and the primary row is written last, after its duplicates, so a crash at any point leaves it `doubtful` and running `resolve` again completes it. Retrying a failed source call is designed in brick 3; on the local directory the source call is a move inside the same file system.
 - **Losing `data/` is safe**: a fresh `scan` lists neither `Personnel/` nor `.trash/`, and a personal or delete answer moved the duplicates of the capture there too, so personal captures never come back, copies included (T-14).
 - The `work` branch records the owner's answer first (`Doubtful → Inbox`), then re-enters the UC1 flow with doubt disallowed; the decision log entry carries `answer: work`, the label brick 6 values most.
