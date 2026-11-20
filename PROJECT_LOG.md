@@ -2,6 +2,13 @@
 
 Chronological logbook of decisions and events, complementing `git log`. Newest entry first.
 
+## 2026-11-20 — Doubtful captures leave `status` without their text (#27)
+
+- `status --json` printed the OCR text and the model's doubt reasoning of every doubtful capture, so the text of a suspected personal capture came back into the session (REQ-5). MCDA: drop both fields (A 490) over keeping the reasoning or masking by category. A doubtful entry is now built from an allowlist: id, local path, category. `scan` was not affected: it lists inbox captures only and keeps their OCR text, also after a `work` answer.
+- Conception first: REQ-7, UC2, the resolve-doubt sequence, the data flow and the T-13 definition state the rule; two T-13 tests pin it (243 tests, coverage 96.5 %, SonarQube passed, gitleaks clean, Codex no finding).
+- PR #28 merged as `54bd608` with the owner's `MERGE_GATE_WAIVER`: doc coverage not measured, no attestation script.
+- Follow-ups: #29 (a malformed index line is reported with the parser message, which can quote the line), agents-skills#559 (hard rule 8 of `/screenshots` still names `reasoning` as a CLI field).
+
 ## 2026-11-13 — Archive review follow-up: docs and edge-case tests (#22)
 
 - PR #23 merged as `663f6f2` with the owner's `MERGE_GATE_WAIVER` (no attestation script): ADR-0004 sensitivity on all three axes, resolve takes the `duplicate` or `archived` rows of a hash (ADR-0002, `02-sequence-resolve-doubt`), T-22/T-25 trace aligned, tests for the `invalid local name` guard and resolve after a failed archive whose copy ref was replaced (241 tests, 96.5 %, SonarQube passed, Codex no finding).
