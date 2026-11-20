@@ -4,10 +4,10 @@ Chronological logbook of decisions and events, complementing `git log`. Newest e
 
 ## 2026-11-20 — Doubtful captures leave `status` without their text (#27)
 
-- `status --json` printed the OCR text and the model's doubt reasoning of every doubtful capture, so the text of a suspected personal capture came back into the session (REQ-5). MCDA: drop both fields (A 490) over keeping the reasoning or masking by category. A doubtful entry is now built from an allowlist: id, local path, category. `scan` was not affected: it lists inbox captures only and keeps their OCR text, also after a `work` answer.
-- Conception first: REQ-7, UC2, the resolve-doubt sequence, the data flow and the T-13 definition state the rule; two T-13 tests pin it (243 tests, coverage 96.5 %, SonarQube passed, gitleaks clean, Codex no finding).
+- `status --json` printed the doubt reasoning of a doubtful capture, and would have printed its OCR text once an OCR-capable source exists (Immich, #3), so the text of a suspected personal capture could reach the session again (REQ-5). MCDA: drop both fields (A 490 vs B 400 keep the reasoning of off-topic and unreadable, C 360 filter personal-suspected only). A doubtful entry is now built from an allowlist: id, local path, category. `scan` was not affected: it lists inbox captures only and keeps their OCR text, also after a `work` answer.
+- Conception first: REQ-7, UC2, the resolve-doubt sequence, the data flow, the UC3 row and the T-13 definition of the traceability matrix state the rule; two T-13 tests pin it (243 tests, coverage 96.5 %, SonarQube passed, gitleaks clean).
 - PR #28 merged as `54bd608` with the owner's `MERGE_GATE_WAIVER`: doc coverage not measured, no attestation script.
-- Follow-ups: #29 (a malformed index line is reported with the parser message, which can quote the line), agents-skills#559 (hard rule 8 of `/screenshots` still names `reasoning` as a CLI field).
+- Follow-ups: #29 (a malformed index line is reported with the parser message, which can quote the line), benoit-bremaud/agents-skills#559 (hard rule 8 of `/screenshots` still names `reasoning` as a CLI field).
 
 ## 2026-11-13 — Archive review follow-up: docs and edge-case tests (#22)
 
