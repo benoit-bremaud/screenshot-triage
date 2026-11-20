@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { ScanReport } from '../src/commands/scan.js';
 import type { StatusReport } from '../src/commands/status.js';
 import { png, Workspace } from './helpers.js';
 
@@ -45,6 +46,18 @@ describe('UC3 status (T-13)', () => {
       expect(output).not.toContain('SECRET-OCR');
       expect(output).not.toContain('SECRET-REASONING');
     }
+  });
+
+  it('T-13: a work answer returns the capture to the scan inbox with its OCR text', async () => {
+    const id = await ws.addCapture('w.png', png('work'));
+    await ws.scan();
+    await ws.rewriteIndex((row) => ({ ...row, ocrText: 'OCR' }));
+    await ws.doubt(id, { category: 'off-topic' });
+    await ws.resolve(id, 'work');
+    const report = (await ws.scan()).json<ScanReport>();
+    expect(report.inbox).toEqual([
+      { id, path: expect.stringContaining(`inbox/${id}.png`), ocrText: 'OCR', doubtAnswer: 'work' },
+    ]);
   });
 
   it('status on an empty index', async () => {

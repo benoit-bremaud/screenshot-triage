@@ -18,7 +18,7 @@ export interface StatusReport {
    * Doubtful captures awaiting an answer: the list UC2 iterates. Never their OCR text or the
    * model's reasoning: a suspected personal capture's text stays in the private index (REQ-5, #27).
    */
-  readonly doubtful: readonly (Omit<CaptureEntry, 'ocrText'> & { category?: string })[];
+  readonly doubtful: readonly (Pick<CaptureEntry, 'id' | 'path'> & { category?: string })[];
   /** Triaged captures with their domain and tags: the list UC4 extracts (REQ-17). */
   readonly triaged: readonly (CaptureEntry & { domain?: Domain; tags: readonly string[] })[];
   readonly tags: readonly TagCount[];
@@ -48,8 +48,9 @@ export const buildStatus = async (context: CommandContext): Promise<StatusReport
     rows
       .filter((row) => row.status === 'doubtful')
       .map(async (row) => {
-        const { ocrText: _ocrText, ...entry } = await entryOf(context, row);
-        return { ...entry, ...(row.category === undefined ? {} : { category: row.category }) };
+        // An allowlist: a text field added to `CaptureEntry` later must not reach this list.
+        const { id, path } = await entryOf(context, row);
+        return { id, path, ...(row.category === undefined ? {} : { category: row.category }) };
       }),
   );
   const triaged = await Promise.all(
