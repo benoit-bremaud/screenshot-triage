@@ -4,12 +4,12 @@ Chronological logbook of decisions and events, complementing `git log`. Newest e
 
 ## 2026-11-27 — Camera roll emptied in 12 batches (#32)
 
-- First real run of `/screenshots` over the local-directory source, 2026-11-24 → 2026-11-27: 12 batches of up to 300 captures (newest `takenAt` first from batch 7), each with one answers table, one confirmation of the dry runs and one confirmation of the phone cleanup.
-- Final status: 788 personal (left on the phone, never read), 807 deleted (stock market and trading, ads, home screens, the owner's own brewing-app screens), 1 424 archived (mostly design, ai-tooling and frontend), inbox 0. No failed command, no rejected transition.
-- Phone cleanup over USB (`adb`, outside the CLI): only `deleted` and `archived` files, each checked by name and size against the index after a dry run and the owner's yes; the folder ends with 791 files, personal captures only.
+- First real run of `/screenshots` over the local-directory source, 2026-11-23 → 2026-11-27: 12 batches of up to 300 captures (newest `takenAt` first from batch 7), each with one answers table, one confirmation of the dry runs and one confirmation of the phone cleanup.
+- Final status: 788 personal (left on the phone, never read), 807 deleted (off-topic: ads, home screens and other non-watch content), 1 424 archived (mostly design, ai-tooling and frontend), inbox 0. No failed command, no rejected transition.
+- Phone cleanup over USB (`adb`, outside the CLI): only `deleted` and `archived` files, each checked by name and size against the index after a dry run and the owner's yes; the folder ends with 791 files: 788 personal captures and 3 screen recordings (`.mp4`) that `scan` does not take (#34).
 - `knowledge/decisions.jsonl` committed: 1 424 filing decisions, labels only (keys checked: no ref, filename or free text).
-- Electronics and 3D-printer captures were filed `other` with tags `electronics` and `3d-printing` until the CLI has those domains (follow-up).
-- Next: fold the private design and tooling synthesis (`data/skill-synthesis.md`) into the `ui-design` skills and the non-design skills, in `~/.claude` under its own issue.
+- 40 hardware captures were filed `other` with tags `electronics`, `3d-printing`, `robotics`, `home-automation` and `telemetry` until the CLI has matching domains (#33).
+- Next: fold the design and tooling ideas from the run into the `ui-design` skills and the non-design skills (benoit-bremaud/agents-skills#587).
 
 ## 2026-11-20 — Doubtful captures leave `status` without their text (#27)
 
