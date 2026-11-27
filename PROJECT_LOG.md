@@ -2,6 +2,15 @@
 
 Chronological logbook of decisions and events, complementing `git log`. Newest entry first.
 
+## 2026-11-27 — Camera roll emptied in 12 batches (#32)
+
+- First real run of `/screenshots` over the local-directory source, 2026-11-23 → 2026-11-27: 12 batches of up to 300 captures (newest `takenAt` first from batch 7), each with one answers table, one confirmation of the dry runs and one confirmation of the phone cleanup.
+- Final status: 788 personal (left on the phone, never read), 807 deleted (off-topic: ads, home screens and other non-watch content), 1 424 archived (mostly design, ai-tooling and frontend), inbox 0. No failed command, no rejected transition.
+- Phone cleanup over USB (`adb`, outside the CLI): only `deleted` and `archived` files, each checked by name and size against the index after a dry run and the owner's yes; the folder ends with 791 files: 788 personal captures and 3 screen recordings (`.mp4`) that `scan` does not take (#34).
+- `knowledge/decisions.jsonl` committed: 1 424 filing decisions, labels only (keys checked: no ref, filename or free text).
+- 40 hardware captures were filed `other` with tags `electronics`, `3d-printing`, `robotics`, `home-automation` and `telemetry` until the CLI has matching domains (#33).
+- Next: fold the design and tooling ideas from the run into the `ui-design` skills and the non-design skills (benoit-bremaud/agents-skills#587).
+
 ## 2026-11-20 — Doubtful captures leave `status` without their text (#27)
 
 - `status --json` printed the doubt reasoning of a doubtful capture, and would have printed its OCR text once an OCR-capable source exists (Immich, #3), so the text of a suspected personal capture could reach the session again (REQ-5). MCDA: drop both fields (A 490 vs B 400 keep the reasoning of off-topic and unreadable, C 360 filter personal-suspected only). A doubtful entry is now built from an allowlist: id, local path, category. `scan` was not affected: it lists inbox captures only and keeps their OCR text, also after a `work` answer.
